@@ -994,18 +994,18 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
   const kpiAttainment = kpiTarget > 0 ? (canRunAdsPv / kpiTarget) * 100 : 0;
   const kpiGap = canRunAdsPv - kpiTarget;
 
-  // Comparison period (Previous period)
+  // Comparison period (Previous period automatically determined by grain)
   let prevMonths: number[] = [];
-  let comparisonTitle = 'So với cùng kỳ trước';
-  if (filter.comparisonMode === 'MoM' || filter.timeMode === 'month') {
+  let comparisonTitle = 'So với kỳ trước';
+  if (filter.timeMode === 'month' || filter.dateRangePreset === 'this_month' || filter.dateRangePreset === 'prev_month') {
     prevMonths = activeMonths.map((m) => Math.max(1, m - 1));
     comparisonTitle = 'So với tháng trước (MoM)';
-  } else if (filter.comparisonMode === 'WoW') {
+  } else if (filter.dateRangePreset === 'today' || filter.dateRangePreset === 'yesterday') {
     prevMonths = activeMonths;
-    comparisonTitle = 'So với tuần trước (WoW)';
+    comparisonTitle = 'So với ngày trước (DoD)';
   } else {
     prevMonths = activeMonths.map((m) => Math.max(1, m - 1));
-    comparisonTitle = 'So với kỳ trước (MoM)';
+    comparisonTitle = 'So với kỳ trước';
   }
 
   const prevFolders = folderRecords.filter((r) => prevMonths.includes(r.month));

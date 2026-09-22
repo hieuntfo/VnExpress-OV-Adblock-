@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import {
-  Filter,
   Calendar,
   CalendarRange,
   Globe2,
   FolderOpen,
-  ArrowLeftRight,
   RotateCcw,
   Info,
   ChevronDown,
@@ -40,10 +38,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     onChangeFilter({ ...filter, folder: e.target.value });
   };
 
-  const handleComparisonChange = (mode: 'DoD' | 'WoW' | 'MoM') => {
-    onChangeFilter({ ...filter, comparisonMode: mode });
-  };
-
   const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
 
   const handleApplyCustomRange = (
@@ -61,10 +55,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     });
   };
 
+  // Only consider custom range active if explicitly in date-range mode with custom / multi-day range
   const isCustomRangeActive =
     filter.timeMode === 'date-range' &&
-    (['custom', 'last7', 'last14', 'last30', 'q1', 'q2', 'q3'].includes(filter.dateRangePreset) ||
-      Boolean(filter.customStartDate && filter.customEndDate));
+    ['custom', 'last7', 'last14', 'last30', 'q1', 'q2', 'q3'].includes(filter.dateRangePreset);
 
   const getCustomRangeLabel = () => {
     if (filter.dateRangePreset === 'last7') return '7 ngày qua';
@@ -80,12 +74,43 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   };
 
   const handlePresetChange = (preset: FilterState['dateRangePreset']) => {
-    onChangeFilter({
-      ...filter,
-      timeMode: 'date-range',
-      dateRangePreset: preset,
-      selectedMonth: preset === 'this_month' ? 9 : preset === 'prev_month' ? 8 : 'all',
-    });
+    if (preset === 'today' || preset === 'yesterday') {
+      onChangeFilter({
+        ...filter,
+        timeMode: 'date-range',
+        dateRangePreset: preset,
+        selectedMonth: 'all',
+        customStartDate: '',
+        customEndDate: '',
+      });
+    } else if (preset === 'this_month') {
+      onChangeFilter({
+        ...filter,
+        timeMode: 'month',
+        dateRangePreset: 'this_month',
+        selectedMonth: 9,
+        customStartDate: '',
+        customEndDate: '',
+      });
+    } else if (preset === 'prev_month') {
+      onChangeFilter({
+        ...filter,
+        timeMode: 'month',
+        dateRangePreset: 'prev_month',
+        selectedMonth: 8,
+        customStartDate: '',
+        customEndDate: '',
+      });
+    } else {
+      onChangeFilter({
+        ...filter,
+        timeMode: 'month',
+        dateRangePreset: 'all',
+        selectedMonth: 'all',
+        customStartDate: '',
+        customEndDate: '',
+      });
+    }
   };
 
   const handleMonthChange = (month: number | 'all') => {
@@ -93,6 +118,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       ...filter,
       timeMode: 'month',
       selectedMonth: month,
+      dateRangePreset: month === 9 ? 'this_month' : month === 8 ? 'prev_month' : 'all',
+      customStartDate: '',
+      customEndDate: '',
     });
   };
 
@@ -119,7 +147,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     <div className="bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-          {/* Left: Core Filter Selectors */}
+          {/* Left: Core Filter Selectors (Market & Folder) */}
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Market Filter */}
             <div className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs">
@@ -163,50 +191,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               </select>
             </div>
 
-            {/* Comparison Mode (DoD / WoW / MoM) */}
-            <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs">
-              <span className="text-[11px] font-semibold text-slate-500 px-2 flex items-center gap-1">
-                <ArrowLeftRight className="h-3 w-3" />
-                Đối chiếu:
-              </span>
-              <button
-                type="button"
-                onClick={() => handleComparisonChange('DoD')}
-                className={`px-2 py-0.5 rounded font-semibold transition-colors ${
-                  filter.comparisonMode === 'DoD'
-                    ? 'bg-red-700 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="So sánh theo ngày (Day-over-Day)"
-              >
-                DoD
-              </button>
-              <button
-                type="button"
-                onClick={() => handleComparisonChange('WoW')}
-                className={`px-2 py-0.5 rounded font-semibold transition-colors ${
-                  filter.comparisonMode === 'WoW'
-                    ? 'bg-red-700 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="So sánh theo tuần (Week-over-Week)"
-              >
-                WoW
-              </button>
-              <button
-                type="button"
-                onClick={() => handleComparisonChange('MoM')}
-                className={`px-2 py-0.5 rounded font-semibold transition-colors ${
-                  filter.comparisonMode === 'MoM'
-                    ? 'bg-red-700 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="So sánh theo tháng (Month-over-Month)"
-              >
-                MoM
-              </button>
-            </div>
-
             {/* Reset Button */}
             {isFiltered && (
               <button
@@ -233,8 +217,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               type="button"
               onClick={() => handlePresetChange('today')}
               className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                filter.timeMode === 'date-range' && filter.dateRangePreset === 'today'
-                  ? 'bg-slate-900 text-white'
+                !isCustomRangeActive && filter.timeMode === 'date-range' && filter.dateRangePreset === 'today'
+                  ? 'bg-slate-900 text-white font-semibold'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
@@ -244,8 +228,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               type="button"
               onClick={() => handlePresetChange('yesterday')}
               className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                filter.timeMode === 'date-range' && filter.dateRangePreset === 'yesterday'
-                  ? 'bg-slate-900 text-white'
+                !isCustomRangeActive && filter.timeMode === 'date-range' && filter.dateRangePreset === 'yesterday'
+                  ? 'bg-slate-900 text-white font-semibold'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
@@ -255,9 +239,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               type="button"
               onClick={() => handlePresetChange('this_month')}
               className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                (filter.timeMode === 'date-range' && filter.dateRangePreset === 'this_month') ||
-                (filter.timeMode === 'month' && filter.selectedMonth === 9)
-                  ? 'bg-slate-900 text-white'
+                !isCustomRangeActive && filter.timeMode === 'month' && filter.selectedMonth === 9
+                  ? 'bg-slate-900 text-white font-semibold'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
@@ -267,9 +250,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               type="button"
               onClick={() => handlePresetChange('prev_month')}
               className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                (filter.timeMode === 'date-range' && filter.dateRangePreset === 'prev_month') ||
-                (filter.timeMode === 'month' && filter.selectedMonth === 8)
-                  ? 'bg-slate-900 text-white'
+                !isCustomRangeActive && filter.timeMode === 'month' && filter.selectedMonth === 8
+                  ? 'bg-slate-900 text-white font-semibold'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
@@ -277,9 +259,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => handleMonthChange('all')}
+              onClick={() => handlePresetChange('all')}
               className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                filter.selectedMonth === 'all' && filter.dateRangePreset === 'all'
+                !isCustomRangeActive && filter.selectedMonth === 'all' && filter.dateRangePreset === 'all'
                   ? 'bg-red-700 text-white font-semibold'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
@@ -289,7 +271,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
             {/* Quick Month Dropdown */}
             <select
-              value={filter.timeMode === 'month' ? filter.selectedMonth : 'custom'}
+              value={!isCustomRangeActive && typeof filter.selectedMonth === 'number' ? filter.selectedMonth : 'all'}
               onChange={(e) =>
                 handleMonthChange(e.target.value === 'all' ? 'all' : Number(e.target.value))
               }
@@ -303,7 +285,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               ))}
             </select>
 
-            {/* Custom Date Range Picker Button (Arrow location) */}
+            {/* Custom Date Range Picker Button */}
             <div className="flex items-center gap-1">
               <button
                 type="button"
