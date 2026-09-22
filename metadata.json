@@ -1,0 +1,6 @@
+{
+  "name": "VnExpress OV Adblock Control Tower",
+  "description": "Daily Executive Monitoring – Can Run Ads vs Block Ads for VnExpress Overseas (OV) Adblock Pilot",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
