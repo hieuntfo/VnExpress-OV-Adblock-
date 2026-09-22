@@ -65,9 +65,13 @@ export type DateRangePreset =
   | 'today'
   | 'yesterday'
   | 'last7'
+  | 'last14'
   | 'last30'
   | 'this_month'
   | 'prev_month'
+  | 'q1'
+  | 'q2'
+  | 'q3'
   | 'all'
   | 'custom';
 
@@ -93,6 +97,21 @@ export interface ExecutiveKpiSummary {
   kpiTarget: number;
   kpiAttainment: number; // %
   kpiGap: number; // canRunAdsPv - kpiTarget (or actual - target)
+  
+  // Baseline T7-T8 Official KPIs (Order Tech 2026-09-22)
+  baselineBlockRate: number; // Baseline Block Rate % (T7-T8)
+  targetBlockRate15: number; // Target -15% so với baseline
+  targetBlockRate10: number; // Target -10% so với baseline
+  blockRateVsBaselineDelta: number; // actual - baseline (âm là tốt)
+  blockRateReductionPct: number; // % giảm được so với baseline
+  isBlockRate15Attained: boolean;
+  isBlockRate10Attained: boolean;
+
+  baselineRunAds: number; // Baseline Run Ads T7-T8
+  targetRunAds10: number; // Target Run Ads +10%
+  targetRunAds15: number; // Target Run Ads +15%
+  kpiAttainmentVsBaselineTarget: number; // (canRunAdsPv / targetRunAds10) * 100
+  isAttainment10Attained: boolean;
   
   // Comparative metrics
   comparisonTitle: string;

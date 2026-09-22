@@ -9,6 +9,7 @@ import {
   Download,
   ShieldCheck,
   AlertTriangle,
+  Target,
 } from 'lucide-react';
 import { DataQualityReport } from '../types';
 
@@ -16,6 +17,7 @@ interface NavbarProps {
   onOpenUpload: () => void;
   onOpenSettings: () => void;
   onOpenDataQuality: () => void;
+  onOpenTechDoc?: () => void;
   onResetData: () => void;
   onPrint: () => void;
   onExportCsv?: () => void;
@@ -28,6 +30,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenUpload,
   onOpenSettings,
   onOpenDataQuality,
+  onOpenTechDoc,
   onResetData,
   onPrint,
   onExportCsv,
@@ -41,8 +44,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           {/* Brand & Title */}
           <div className="flex items-center gap-3.5">
-            <div className="h-10 w-10 rounded-lg bg-red-700 flex items-center justify-center text-white font-black text-xl tracking-tight shadow-xs">
-              VnE
+            <div
+              style={{ backgroundColor: '#9f224e' }}
+              className="h-10 w-10 rounded-lg flex flex-col items-center justify-center text-white shadow-xs leading-none select-none border border-white/20 shrink-0"
+              title="VnExpress Overseas (OV)"
+            >
+              <span className="text-[14px] tracking-tight font-black">VnE</span>
+              <span className="text-[10px] tracking-wider font-extrabold text-red-100">OV</span>
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -62,6 +70,20 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Action buttons */}
           <div className="flex items-center flex-wrap gap-2">
+            {/* Tech Spec KPI Button */}
+            {onOpenTechDoc && (
+              <button
+                onClick={onOpenTechDoc}
+                type="button"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold text-white shadow-xs hover:opacity-90 transition-opacity cursor-pointer"
+                style={{ backgroundColor: '#9f224e' }}
+                title="Xem tài liệu đặc tả KPI và Lộ trình quốc gia Order Tech (22/09/2026)"
+              >
+                <Target className="h-3.5 w-3.5" />
+                <span>Spec KPI (Order Tech)</span>
+              </button>
+            )}
+
             {/* Data Quality Status */}
             <button
               onClick={onOpenDataQuality}

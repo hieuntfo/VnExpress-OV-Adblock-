@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="vneBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ab2654"/>
+      <stop offset="100%" stop-color="#8b1c42"/>
+    </linearGradient>
+  </defs>
+  <!-- Background with VnExpress brand burgundy #9f224e -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#vneBg)" stroke="#ffffff" stroke-opacity="0.2" stroke-width="1.5"/>
+  
+  <!-- Line 1: VnE -->
+  <text 
+    x="32" 
+    y="28" 
+    text-anchor="middle" 
+    fill="#ffffff" 
+    font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+    font-weight="900" 
+    font-size="21" 
+    letter-spacing="-0.5px">VnE</text>
+
+  <!-- Line 2: OV -->
+  <text 
+    x="32" 
+    y="49" 
+    text-anchor="middle" 
+    fill="#ffffff" 
+    font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+    font-weight="800" 
+    font-size="16" 
+    letter-spacing="2px">OV</text>
+</svg>

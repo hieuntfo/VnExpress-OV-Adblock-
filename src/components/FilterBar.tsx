@@ -1,14 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Filter,
   Calendar,
+  CalendarRange,
   Globe2,
   FolderOpen,
   ArrowLeftRight,
   RotateCcw,
   Info,
+  ChevronDown,
+  X,
 } from 'lucide-react';
-import { FilterState } from '../types';
+import { FilterState, DateRangePreset } from '../types';
+import { DateRangeModal } from './DateRangeModal';
+import { formatDateVi } from '../services/dataService';
 
 interface FilterBarProps {
   filter: FilterState;
@@ -37,6 +42,41 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
   const handleComparisonChange = (mode: 'DoD' | 'WoW' | 'MoM') => {
     onChangeFilter({ ...filter, comparisonMode: mode });
+  };
+
+  const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
+
+  const handleApplyCustomRange = (
+    preset: DateRangePreset,
+    startDate: string,
+    endDate: string
+  ) => {
+    onChangeFilter({
+      ...filter,
+      timeMode: 'date-range',
+      dateRangePreset: preset,
+      customStartDate: startDate,
+      customEndDate: endDate,
+      selectedMonth: 'all',
+    });
+  };
+
+  const isCustomRangeActive =
+    filter.timeMode === 'date-range' &&
+    (['custom', 'last7', 'last14', 'last30', 'q1', 'q2', 'q3'].includes(filter.dateRangePreset) ||
+      Boolean(filter.customStartDate && filter.customEndDate));
+
+  const getCustomRangeLabel = () => {
+    if (filter.dateRangePreset === 'last7') return '7 ngày qua';
+    if (filter.dateRangePreset === 'last14') return '14 ngày qua';
+    if (filter.dateRangePreset === 'last30') return '30 ngày qua';
+    if (filter.dateRangePreset === 'q1') return 'Quý 1/2026';
+    if (filter.dateRangePreset === 'q2') return 'Quý 2/2026';
+    if (filter.dateRangePreset === 'q3') return 'Quý 3/2026';
+    if (filter.customStartDate && filter.customEndDate) {
+      return `${formatDateVi(filter.customStartDate)} → ${formatDateVi(filter.customEndDate)}`;
+    }
+    return 'Khoảng thời gian';
   };
 
   const handlePresetChange = (preset: FilterState['dateRangePreset']) => {
@@ -262,6 +302,44 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 </option>
               ))}
             </select>
+
+            {/* Custom Date Range Picker Button (Arrow location) */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setIsDateRangeModalOpen(true)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                  isCustomRangeActive
+                    ? 'bg-red-700 text-white font-semibold shadow-xs ring-1 ring-red-800'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 hover:border-slate-400'
+                }`}
+                title="Chọn khoảng thời gian (Từ ngày - Đến ngày)"
+              >
+                <CalendarRange className="h-3.5 w-3.5" />
+                <span>{isCustomRangeActive ? getCustomRangeLabel() : 'Khoảng thời gian...'}</span>
+                <ChevronDown className="h-3 w-3 opacity-70" />
+              </button>
+
+              {isCustomRangeActive && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onChangeFilter({
+                      ...filter,
+                      timeMode: 'month',
+                      selectedMonth: 'all',
+                      dateRangePreset: 'all',
+                      customStartDate: '',
+                      customEndDate: '',
+                    })
+                  }
+                  className="p-1 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded-md transition-colors"
+                  title="Xóa khoảng thời gian tùy chọn"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -275,6 +353,16 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             </div>
           </div>
         )}
+
+        {/* Date Range Selection Modal */}
+        <DateRangeModal
+          isOpen={isDateRangeModalOpen}
+          onClose={() => setIsDateRangeModalOpen(false)}
+          currentPreset={filter.dateRangePreset}
+          currentStartDate={filter.customStartDate}
+          currentEndDate={filter.customEndDate}
+          onApply={handleApplyCustomRange}
+        />
       </div>
     </div>
   );

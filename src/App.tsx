@@ -16,6 +16,7 @@ import {
   runDataQualityAudit,
   generateActiveAlerts,
   resetToDefaultDatasets,
+  getActiveMonthsFromFilter,
 } from './services/dataService';
 import { Navbar } from './components/Navbar';
 import { FilterBar } from './components/FilterBar';
@@ -34,6 +35,7 @@ import { UploadModal } from './components/UploadModal';
 import { SettingsModal } from './components/SettingsModal';
 import { DataQualityModal } from './components/DataQualityModal';
 import { MetricFormulaModal, MetricKey } from './components/MetricFormulaModal';
+import { TechOrderSpecModal } from './components/TechOrderSpecModal';
 import {
   LayoutDashboard,
   Calendar,
@@ -117,6 +119,7 @@ export default function App() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [isTechSpecModalOpen, setIsTechSpecModalOpen] = useState(false);
   const [formulaModalMetric, setFormulaModalMetric] = useState<MetricKey | null>(null);
 
   // Active view tab for clean executive navigation
@@ -144,17 +147,30 @@ export default function App() {
     return calculateExecutiveSummary(filters);
   }, [filters, dataVersion]);
 
+  // Active months resolution for tables and breakdowns
+  const activeMonthsForTables = useMemo(() => {
+    return getActiveMonthsFromFilter(filters);
+  }, [filters]);
+
+  const selectedMonthForProps: number | 'all' = useMemo(() => {
+    if (activeMonthsForTables === 'all') return 'all';
+    if (Array.isArray(activeMonthsForTables)) {
+      return activeMonthsForTables.length === 1 ? activeMonthsForTables[0] : 'all';
+    }
+    return Number(activeMonthsForTables);
+  }, [activeMonthsForTables]);
+
   const sampleAllocationRows = useMemo(() => {
-    return calculateSampleAllocation(targetAllocations, filters.selectedMonth);
-  }, [targetAllocations, filters.selectedMonth, dataVersion]);
+    return calculateSampleAllocation(targetAllocations, activeMonthsForTables);
+  }, [targetAllocations, activeMonthsForTables, dataVersion]);
 
   const marketPerformance = useMemo(() => {
-    return calculateMarketPerformance(filters.selectedMonth);
-  }, [filters.selectedMonth, dataVersion]);
+    return calculateMarketPerformance(activeMonthsForTables);
+  }, [activeMonthsForTables, dataVersion]);
 
   const folderPerformance = useMemo(() => {
-    return calculateFolderPerformance(filters.selectedMonth);
-  }, [filters.selectedMonth, dataVersion]);
+    return calculateFolderPerformance(activeMonthsForTables);
+  }, [activeMonthsForTables, dataVersion]);
 
   const insights = useMemo(() => {
     return generateExecutiveInsights(filters);
@@ -300,6 +316,7 @@ export default function App() {
         onOpenUpload={() => setIsUploadOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenDataQuality={() => setIsAuditModalOpen(true)}
+        onOpenTechDoc={() => setIsTechSpecModalOpen(true)}
         onResetData={() => {
           resetToDefaultDatasets();
           setDataVersion((v) => v + 1);
@@ -408,7 +425,11 @@ export default function App() {
 
         {/* 6 Executive KPI Cards (Always visible on all tabs as North Star metrics) */}
         <section aria-label="Executive KPI Cards">
-          <KpiCards summary={summary} onOpenFormula={(metric) => setFormulaModalMetric(metric)} />
+          <KpiCards
+            summary={summary}
+            onOpenFormula={(metric) => setFormulaModalMetric(metric)}
+            onOpenTechDoc={() => setIsTechSpecModalOpen(true)}
+          />
         </section>
 
         {/* Tab 1: Executive Briefing */}
@@ -419,7 +440,7 @@ export default function App() {
               insights={insights}
               alerts={alerts}
               sampleAllocationRows={sampleAllocationRows}
-              selectedMonth={filters.selectedMonth}
+              selectedMonth={selectedMonthForProps}
               onOpenFormula={(metric) => setFormulaModalMetric(metric)}
             />
           </section>
@@ -458,7 +479,7 @@ export default function App() {
                 onUpdateTargetAllocation={handleUpdateTargetAllocation}
                 onSaveAllAllocations={handleSaveAllAllocations}
                 onResetAllocations={handleResetAllocations}
-                selectedMonth={filters.selectedMonth}
+                selectedMonth={selectedMonthForProps}
               />
             </section>
 
@@ -467,7 +488,7 @@ export default function App() {
                 <MarketTable
                   markets={marketPerformance}
                   onSelectMarket={(country) => setModalState({ type: 'market', country })}
-                  selectedMonth={filters.selectedMonth}
+                  selectedMonth={selectedMonthForProps}
                 />
               </section>
 
@@ -475,7 +496,7 @@ export default function App() {
                 <FolderTable
                   folders={folderPerformance}
                   onSelectFolder={(folder) => setModalState({ type: 'folder', folder })}
-                  selectedMonth={filters.selectedMonth}
+                  selectedMonth={selectedMonthForProps}
                 />
               </section>
             </div>
@@ -491,7 +512,7 @@ export default function App() {
               rawFolders={normalizedData.folders}
               rawCountries={normalizedData.countries}
               rawDates={normalizedData.dates}
-              selectedMonth={filters.selectedMonth}
+              selectedMonth={selectedMonthForProps}
             />
           </section>
         )}
@@ -543,6 +564,15 @@ export default function App() {
         onClose={() => setFormulaModalMetric(null)}
         initialMetric={formulaModalMetric || 'kpiAttainment'}
         summary={summary}
+      />
+
+      {/* Tech Order Spec & Country Roadmap Modal */}
+      <TechOrderSpecModal
+        isOpen={isTechSpecModalOpen}
+        onClose={() => setIsTechSpecModalOpen(false)}
+        onSelectCountry={(country) => {
+          setFilters((prev) => ({ ...prev, market: country }));
+        }}
       />
 
       {/* Floating Scroll to Top Button */}

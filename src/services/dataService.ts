@@ -85,6 +85,115 @@ export function formatDiffPp(val: number | null | undefined): string {
 }
 
 /**
+ * Format ISO date string (YYYY-MM-DD) to Vietnamese presentation (DD/MM/YYYY)
+ */
+export function formatDateVi(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const clean = dateStr.slice(0, 10);
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+}
+
+/**
+ * Extract active months from filter state
+ */
+export function getActiveMonthsFromFilter(filter: FilterState): number[] | 'all' {
+  if (filter.timeMode === 'month') {
+    return filter.selectedMonth === 'all' ? 'all' : [Number(filter.selectedMonth)];
+  }
+  if (
+    filter.dateRangePreset === 'today' ||
+    filter.dateRangePreset === 'yesterday' ||
+    filter.dateRangePreset === 'this_month'
+  ) {
+    return [9];
+  }
+  if (filter.dateRangePreset === 'prev_month') {
+    return [8];
+  }
+  if (
+    filter.dateRangePreset === 'last7' ||
+    filter.dateRangePreset === 'last14' ||
+    filter.dateRangePreset === 'last30'
+  ) {
+    return [8, 9];
+  }
+  if (filter.dateRangePreset === 'q1') {
+    return [1, 2, 3];
+  }
+  if (filter.dateRangePreset === 'q2') {
+    return [4, 5, 6];
+  }
+  if (filter.dateRangePreset === 'q3') {
+    return [7, 8, 9];
+  }
+  if (filter.dateRangePreset === 'custom' && filter.customStartDate && filter.customEndDate) {
+    const startM = Number(filter.customStartDate.slice(5, 7)) || 1;
+    const endM = Number(filter.customEndDate.slice(5, 7)) || 9;
+    const months: number[] = [];
+    const minM = Math.min(startM, endM);
+    const maxM = Math.max(startM, endM);
+    for (let m = minM; m <= maxM; m++) {
+      months.push(m);
+    }
+    return months.length > 0 ? months : 'all';
+  }
+  return 'all';
+}
+
+/**
+ * Extract date range bounds from filter state
+ */
+export function getDateBoundsFromFilter(filter: FilterState): { startDate: string; endDate: string } {
+  if (filter.timeMode === 'month') {
+    if (filter.selectedMonth === 'all') {
+      return { startDate: '2026-01-01', endDate: '2026-09-03' };
+    }
+    const m = Number(filter.selectedMonth);
+    const mStr = m < 10 ? `0${m}` : `${m}`;
+    const lastDay = m === 9 ? '03' : new Date(2026, m, 0).getDate();
+    return { startDate: `2026-${mStr}-01`, endDate: `2026-${mStr}-${lastDay}` };
+  }
+  if (filter.dateRangePreset === 'today') {
+    return { startDate: '2026-09-03', endDate: '2026-09-03' };
+  }
+  if (filter.dateRangePreset === 'yesterday') {
+    return { startDate: '2026-09-02', endDate: '2026-09-02' };
+  }
+  if (filter.dateRangePreset === 'this_month') {
+    return { startDate: '2026-09-01', endDate: '2026-09-03' };
+  }
+  if (filter.dateRangePreset === 'prev_month') {
+    return { startDate: '2026-08-01', endDate: '2026-08-31' };
+  }
+  if (filter.dateRangePreset === 'last7') {
+    return { startDate: '2026-08-28', endDate: '2026-09-03' };
+  }
+  if (filter.dateRangePreset === 'last14') {
+    return { startDate: '2026-08-21', endDate: '2026-09-03' };
+  }
+  if (filter.dateRangePreset === 'last30') {
+    return { startDate: '2026-08-05', endDate: '2026-09-03' };
+  }
+  if (filter.dateRangePreset === 'q1') {
+    return { startDate: '2026-01-01', endDate: '2026-03-31' };
+  }
+  if (filter.dateRangePreset === 'q2') {
+    return { startDate: '2026-04-01', endDate: '2026-06-30' };
+  }
+  if (filter.dateRangePreset === 'q3') {
+    return { startDate: '2026-07-01', endDate: '2026-09-03' };
+  }
+  if (filter.dateRangePreset === 'custom' && filter.customStartDate && filter.customEndDate) {
+    return { startDate: filter.customStartDate, endDate: filter.customEndDate };
+  }
+  return { startDate: '2026-01-01', endDate: '2026-09-03' };
+}
+
+/**
  * Parse Raw Folder CSV
  */
 export function parseFolderCsv(csvContent: string): NormalizedFolderRecord[] {
@@ -274,6 +383,263 @@ export function getAvailableMonths(): number[] {
   return Array.from(months).sort((a, b) => a - b);
 }
 
+export interface CountryKpiSpec {
+  country: string;
+  flag: string;
+  phase: 1 | 2 | 3;
+  priorityLabel: string;
+  pvsMonthlyAvg: number;
+  blockRateBaseline: number;
+  targetBlockRate10: number;
+  targetBlockRate15: number;
+  runAdsBaselineMonthly: number;
+  targetRunAds10: number;
+  targetRunAds15: number;
+  stabilityStd: number;
+  complaints: number;
+  notes: string;
+  timezone: string;
+}
+
+export const COUNTRY_KPI_SPECS: Record<string, CountryKpiSpec> = {
+  Australia: {
+    country: 'Australia',
+    flag: '🇦🇺',
+    phase: 1,
+    priorityLabel: 'Giai đoạn 1 — Ưu tiên #1',
+    pvsMonthlyAvg: 3186000,
+    blockRateBaseline: 15.26,
+    targetBlockRate10: 13.74,
+    targetBlockRate15: 12.97,
+    runAdsBaselineMonthly: 2734586,
+    targetRunAds10: 3008045,
+    targetRunAds15: 3144774,
+    stabilityStd: 0.58,
+    complaints: 0,
+    notes: 'Volume lớn nhất trong nhóm khả thi, độ ổn định 9 tháng tốt nhất (std 0.58), 0 complaint, APAC timezone UTC+10 thuận tiện.',
+    timezone: 'UTC+10',
+  },
+  Japan: {
+    country: 'Japan',
+    flag: '🇯🇵',
+    phase: 1,
+    priorityLabel: 'Giai đoạn 1 — Ưu tiên #2',
+    pvsMonthlyAvg: 2178000,
+    blockRateBaseline: 16.06,
+    targetBlockRate10: 14.45,
+    targetBlockRate15: 13.65,
+    runAdsBaselineMonthly: 1852986,
+    targetRunAds10: 2038285,
+    targetRunAds15: 2130934,
+    stabilityStd: 1.08,
+    complaints: 0,
+    notes: 'Chạy song song với Úc. Gap đang tăng T5-T9 cần monitor riêng.',
+    timezone: 'UTC+9',
+  },
+  'Hong Kong': {
+    country: 'Hong Kong',
+    flag: '🇭🇰',
+    phase: 2,
+    priorityLabel: 'Giai đoạn 2',
+    pvsMonthlyAvg: 1308000,
+    blockRateBaseline: 15.87,
+    targetBlockRate10: 14.28,
+    targetBlockRate15: 13.49,
+    runAdsBaselineMonthly: 1261580,
+    targetRunAds10: 1387738,
+    targetRunAds15: 1450817,
+    stabilityStd: 1.19,
+    complaints: 0,
+    notes: 'APAC timezone tốt, sau khi GĐ1 ổn định ≥2 tuần.',
+    timezone: 'UTC+8',
+  },
+  France: {
+    country: 'France',
+    flag: '🇫🇷',
+    phase: 2,
+    priorityLabel: 'Giai đoạn 2',
+    pvsMonthlyAvg: 892000,
+    blockRateBaseline: 17.67,
+    targetBlockRate10: 15.90,
+    targetBlockRate15: 15.02,
+    runAdsBaselineMonthly: 718261,
+    targetRunAds10: 790087,
+    targetRunAds15: 826000,
+    stabilityStd: 0.95,
+    complaints: 0,
+    notes: 'Block rate cao 17.67%.',
+    timezone: 'UTC+2',
+  },
+  Czechia: {
+    country: 'Czechia',
+    flag: '🇨🇿',
+    phase: 2,
+    priorityLabel: 'Giai đoạn 2',
+    pvsMonthlyAvg: 473000,
+    blockRateBaseline: 19.60,
+    targetBlockRate10: 17.64,
+    targetBlockRate15: 16.66,
+    runAdsBaselineMonthly: 386014,
+    targetRunAds10: 424615,
+    targetRunAds15: 443916,
+    stabilityStd: 0.88,
+    complaints: 0,
+    notes: 'Block rate cao nhất nhóm Giai đoạn 2 (19.60%).',
+    timezone: 'UTC+2',
+  },
+  'United Kingdom': {
+    country: 'United Kingdom',
+    flag: '🇬🇧',
+    phase: 2,
+    priorityLabel: 'Giai đoạn 2',
+    pvsMonthlyAvg: 463000,
+    blockRateBaseline: 13.62,
+    targetBlockRate10: 12.26,
+    targetBlockRate15: 11.58,
+    runAdsBaselineMonthly: 411891,
+    targetRunAds10: 453080,
+    targetRunAds15: 473675,
+    stabilityStd: 0.32,
+    complaints: 0,
+    notes: 'Độ ổn định cao nhất (std 0.32 thấp nhất).',
+    timezone: 'UTC+1',
+  },
+  'South Korea': {
+    country: 'South Korea',
+    flag: '🇰🇷',
+    phase: 2,
+    priorityLabel: 'Giai đoạn 2',
+    pvsMonthlyAvg: 684000,
+    blockRateBaseline: 10.92,
+    targetBlockRate10: 9.83,
+    targetBlockRate15: 9.28,
+    runAdsBaselineMonthly: 623951,
+    targetRunAds10: 686346,
+    targetRunAds15: 717543,
+    stabilityStd: 0.73,
+    complaints: 0,
+    notes: 'APAC timezone thuận tiện.',
+    timezone: 'UTC+9',
+  },
+  Germany: {
+    country: 'Germany',
+    flag: '🇩🇪',
+    phase: 3,
+    priorityLabel: 'Giai đoạn 3 — Chờ fix bug',
+    pvsMonthlyAvg: 2310000,
+    blockRateBaseline: 16.50,
+    targetBlockRate10: 14.85,
+    targetBlockRate15: 14.03,
+    runAdsBaselineMonthly: 1930000,
+    targetRunAds10: 2123000,
+    targetRunAds15: 2219500,
+    stabilityStd: 1.20,
+    complaints: 4,
+    notes: 'Bắt buộc fix Safari/Vivaldi bug trước khi bật (4 complaints ngày 08-09/09).',
+    timezone: 'UTC+2',
+  },
+  Canada: {
+    country: 'Canada',
+    flag: '🇨🇦',
+    phase: 3,
+    priorityLabel: 'Giai đoạn 3',
+    pvsMonthlyAvg: 2150000,
+    blockRateBaseline: 15.80,
+    targetBlockRate10: 14.22,
+    targetBlockRate15: 13.43,
+    runAdsBaselineMonthly: 1810000,
+    targetRunAds10: 1991000,
+    targetRunAds15: 2081500,
+    stabilityStd: 1.15,
+    complaints: 1,
+    notes: 'Bật sau khi Germany ổn định (1 complaint ngày pilot).',
+    timezone: 'UTC-4',
+  },
+  'United States': {
+    country: 'United States',
+    flag: '🇺🇸',
+    phase: 3,
+    priorityLabel: 'Giai đoạn 3 — Sau cùng',
+    pvsMonthlyAvg: 18500000,
+    blockRateBaseline: 14.70,
+    targetBlockRate10: 13.23,
+    targetBlockRate15: 12.50,
+    runAdsBaselineMonthly: 15780000,
+    targetRunAds10: 17358000,
+    targetRunAds15: 18147000,
+    stabilityStd: 1.30,
+    complaints: 0,
+    notes: 'Volume >18M PVS/tháng — rủi ro cao nhất, bật sau khi có ≥1 tháng data G1+G2.',
+    timezone: 'UTC-5',
+  },
+};
+
+function attachBaselineKpi(
+  summaryPartial: Omit<
+    ExecutiveKpiSummary,
+    | 'baselineBlockRate'
+    | 'targetBlockRate15'
+    | 'targetBlockRate10'
+    | 'blockRateVsBaselineDelta'
+    | 'blockRateReductionPct'
+    | 'isBlockRate15Attained'
+    | 'isBlockRate10Attained'
+    | 'baselineRunAds'
+    | 'targetRunAds10'
+    | 'targetRunAds15'
+    | 'kpiAttainmentVsBaselineTarget'
+    | 'isAttainment10Attained'
+  >,
+  filter: FilterState,
+  scaleDays: number = 30.5
+): ExecutiveKpiSummary {
+  const countryKey = Object.keys(COUNTRY_KPI_SPECS).find(
+    (k) => k.toLowerCase() === filter.market.toLowerCase()
+  );
+  const spec = countryKey ? COUNTRY_KPI_SPECS[countryKey] : null;
+
+  const baselineBlockRate = spec ? spec.blockRateBaseline : 14.80;
+  const targetBlockRate10 = spec ? spec.targetBlockRate10 : 13.32;
+  const targetBlockRate15 = spec ? spec.targetBlockRate15 : 12.58;
+
+  const baseMonthlyRunAds = spec ? spec.runAdsBaselineMonthly : 31184996;
+  const baseMonthlyTarget10 = spec ? spec.targetRunAds10 : 34303496;
+  const baseMonthlyTarget15 = spec ? spec.targetRunAds15 : 35862745;
+
+  const scale = scaleDays / 30.5;
+  const baselineRunAds = Math.round(baseMonthlyRunAds * scale);
+  const targetRunAds10 = Math.round(baseMonthlyTarget10 * scale);
+  const targetRunAds15 = Math.round(baseMonthlyTarget15 * scale);
+
+  const blockRate = summaryPartial.blockRate;
+  const blockRateVsBaselineDelta = blockRate - baselineBlockRate;
+  const blockRateReductionPct =
+    baselineBlockRate > 0 ? ((baselineBlockRate - blockRate) / baselineBlockRate) * 100 : 0;
+  const isBlockRate15Attained = blockRate <= targetBlockRate15;
+  const isBlockRate10Attained = blockRate <= targetBlockRate10;
+
+  const canRunAdsPv = summaryPartial.canRunAdsPv;
+  const kpiAttainmentVsBaselineTarget =
+    targetRunAds10 > 0 ? (canRunAdsPv / targetRunAds10) * 100 : summaryPartial.kpiAttainment;
+  const isAttainment10Attained = kpiAttainmentVsBaselineTarget >= 100;
+
+  return {
+    ...summaryPartial,
+    baselineBlockRate,
+    targetBlockRate15,
+    targetBlockRate10,
+    blockRateVsBaselineDelta,
+    blockRateReductionPct,
+    isBlockRate15Attained,
+    isBlockRate10Attained,
+    baselineRunAds,
+    targetRunAds10,
+    targetRunAds15,
+    kpiAttainmentVsBaselineTarget,
+    isAttainment10Attained,
+  };
+}
+
 /**
  * Core KPI Summary calculation taking into account FilterState and Grain restrictions
  */
@@ -284,27 +650,13 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
 
   // Determine active months
   let activeMonths: number[] = [];
-  if (filter.timeMode === 'month') {
-    if (filter.selectedMonth === 'all') {
-      activeMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    } else {
-      activeMonths = [Number(filter.selectedMonth)];
-    }
+  const extractedMonths = getActiveMonthsFromFilter(filter);
+  if (extractedMonths === 'all') {
+    activeMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  } else if (Array.isArray(extractedMonths)) {
+    activeMonths = extractedMonths;
   } else {
-    // Date range mode
-    if (filter.dateRangePreset === 'today') {
-      activeMonths = [9]; // 2026-09-03
-    } else if (filter.dateRangePreset === 'yesterday') {
-      activeMonths = [9]; // 2026-09-02
-    } else if (filter.dateRangePreset === 'this_month') {
-      activeMonths = [9];
-    } else if (filter.dateRangePreset === 'prev_month') {
-      activeMonths = [8];
-    } else if (filter.dateRangePreset === 'last7' || filter.dateRangePreset === 'last30') {
-      activeMonths = [8, 9];
-    } else {
-      activeMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    }
+    activeMonths = [Number(extractedMonths)];
   }
 
   // 1. If Market is filtered (Country level data)
@@ -356,7 +708,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
     const blockAdsChangePct = prevBlockAds > 0 ? (blockAdsChange / prevBlockAds) * 100 : 0;
     const blockRateChangePp = blockRate - prevBlockRate;
 
-    return {
+    return attachBaselineKpi({
       totalPageviews,
       canRunAdsPv,
       blockAdsPv,
@@ -375,7 +727,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
       blockRateChangePp,
       kpiAttainmentChangePp: 0,
       grainNotice,
-    };
+    }, filter, activeMonths.length * 30.5);
   }
 
   // 2. If Folder is filtered (Folder level data)
@@ -424,7 +776,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
     const blockAdsChangePct = prevBlockAds > 0 ? (blockAdsChange / prevBlockAds) * 100 : 0;
     const blockRateChangePp = blockRate - prevBlockRate;
 
-    return {
+    return attachBaselineKpi({
       totalPageviews,
       canRunAdsPv,
       blockAdsPv,
@@ -443,7 +795,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
       blockRateChangePp,
       kpiAttainmentChangePp: 0,
       grainNotice,
-    };
+    }, filter, activeMonths.length * 30.5);
   }
 
   // 3. Overall Dashboard (All markets & All folders)
@@ -484,7 +836,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
       const blockAdsChangePct = prevBlockAds > 0 ? (blockAdsChange / prevBlockAds) * 100 : 0;
       const blockRateChangePp = blockRate - prevBlockRate;
 
-      return {
+      return attachBaselineKpi({
         totalPageviews,
         canRunAdsPv,
         blockAdsPv,
@@ -503,7 +855,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
         blockRateChangePp,
         kpiAttainmentChangePp: 0,
         grainNotice: 'Số liệu ngày 03/09/2026 (Ngày mới nhất có dữ liệu thực tế).',
-      };
+      }, filter, 1);
     }
 
     if (filter.dateRangePreset === 'yesterday' && prevDay) {
@@ -527,7 +879,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
       const prevBlockAds = prevPv - prevCanRunAds;
       const prevBlockRate = prevPv > 0 ? (prevBlockAds / prevPv) * 100 : 0;
 
-      return {
+      return attachBaselineKpi({
         totalPageviews,
         canRunAdsPv,
         blockAdsPv,
@@ -546,7 +898,85 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
         blockRateChangePp: blockRate - prevBlockRate,
         kpiAttainmentChangePp: 0,
         grainNotice: 'Số liệu ngày 02/09/2026 (Hôm qua).',
-      };
+      }, filter, 1);
+    }
+
+    // Custom or multi-day date range mode (last7, last14, last30, q1, q2, q3, custom)
+    if (
+      filter.timeMode === 'date-range' &&
+      !['today', 'yesterday'].includes(filter.dateRangePreset)
+    ) {
+      const bounds = getDateBoundsFromFilter(filter);
+      const rangeStartDate = bounds.startDate;
+      const rangeEndDate = bounds.endDate;
+
+      const inRangeDates = dateRecords.filter(
+        (d) => d.dayString.slice(0, 10) >= rangeStartDate && d.dayString.slice(0, 10) <= rangeEndDate
+      );
+      const recordedDates = inRangeDates.filter((d) => d.pageview !== null);
+      const totalPageviews = recordedDates.reduce((acc, d) => acc + (d.pageview || 0), 0);
+      const kpiTarget = inRangeDates.reduce((acc, d) => acc + d.kpiTarget, 0);
+
+      // Determine average run ads rate from folder dataset for the months touched by this range
+      const rangeMonths = Array.from(new Set(inRangeDates.map((d) => d.month)));
+      const matchingFolders = folderRecords.filter((r) =>
+        rangeMonths.length > 0 ? rangeMonths.includes(r.month) : true
+      );
+      const totalFolderPv = matchingFolders.reduce((acc, r) => acc + r.pvs, 0);
+      const totalFolderRun = matchingFolders.reduce((acc, r) => acc + r.pvsRunAds, 0);
+      const avgCanRunAdsRate = totalFolderPv > 0 ? totalFolderRun / totalFolderPv : 0.835;
+
+      const canRunAdsPv = Math.round(totalPageviews * avgCanRunAdsRate);
+      const blockAdsPv = Math.max(0, totalPageviews - canRunAdsPv);
+      const blockRate = totalPageviews > 0 ? (blockAdsPv / totalPageviews) * 100 : 0;
+      const canRunAdsRate = totalPageviews > 0 ? (canRunAdsPv / totalPageviews) * 100 : 0;
+      const kpiAttainment = kpiTarget > 0 ? (canRunAdsPv / kpiTarget) * 100 : 0;
+      const kpiGap = canRunAdsPv - kpiTarget;
+
+      // Prior period for comparison: equal duration shifted back
+      const numDays = Math.max(1, inRangeDates.length);
+      const priorDates = dateRecords
+        .filter((d) => d.dayString.slice(0, 10) < rangeStartDate)
+        .slice(-numDays);
+      const priorRecorded = priorDates.filter((d) => d.pageview !== null);
+      const prevTotalPv = priorRecorded.reduce((acc, d) => acc + (d.pageview || 0), 0);
+      const prevCanRunAds = Math.round(prevTotalPv * avgCanRunAdsRate);
+      const prevBlockAds = Math.max(0, prevTotalPv - prevCanRunAds);
+      const prevBlockRate = prevTotalPv > 0 ? (prevBlockAds / prevTotalPv) * 100 : 0;
+
+      const totalPvChange = totalPageviews - prevTotalPv;
+      const totalPvChangePct = prevTotalPv > 0 ? (totalPvChange / prevTotalPv) * 100 : 0;
+      const canRunAdsChange = canRunAdsPv - prevCanRunAds;
+      const canRunAdsChangePct = prevCanRunAds > 0 ? (canRunAdsChange / prevCanRunAds) * 100 : 0;
+      const blockAdsChange = blockAdsPv - prevBlockAds;
+      const blockAdsChangePct = prevBlockAds > 0 ? (blockAdsChange / prevBlockAds) * 100 : 0;
+      const blockRateChangePp = blockRate - prevBlockRate;
+
+      const comparisonTitle =
+        priorDates.length > 0
+          ? `So với ${priorDates.length} ngày liền trước (${formatDateVi(priorDates[0].dayString)} - ${formatDateVi(priorDates[priorDates.length - 1].dayString)})`
+          : 'So với kỳ trước liền kề';
+
+      return attachBaselineKpi({
+        totalPageviews,
+        canRunAdsPv,
+        blockAdsPv,
+        blockRate,
+        canRunAdsRate,
+        kpiTarget,
+        kpiAttainment,
+        kpiGap,
+        comparisonTitle,
+        totalPvChange,
+        totalPvChangePct,
+        canRunAdsChange,
+        canRunAdsChangePct,
+        blockAdsChange,
+        blockAdsChangePct,
+        blockRateChangePp,
+        kpiAttainmentChangePp: 0,
+        grainNotice: `Khoảng thời gian: ${formatDateVi(rangeStartDate)} đến ${formatDateVi(rangeEndDate)} (${recordedDates.length} ngày có dữ liệu thực tế / ${inRangeDates.length} ngày).`,
+      }, filter, inRangeDates.length || 30.5);
     }
   }
 
@@ -592,7 +1022,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
   const blockAdsChangePct = prevBlockAds > 0 ? (blockAdsChange / prevBlockAds) * 100 : 0;
   const blockRateChangePp = blockRate - prevBlockRate;
 
-  return {
+  return attachBaselineKpi({
     totalPageviews,
     canRunAdsPv,
     blockAdsPv,
@@ -611,7 +1041,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
     blockRateChangePp,
     kpiAttainmentChangePp: 0,
     grainNotice,
-  };
+  }, filter, activeMonths.length * 30.5);
 }
 
 /**
@@ -619,12 +1049,13 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
  */
 export function calculateSampleAllocation(
   targetAllocations: Record<string, number>,
-  selectedMonth: number | 'all'
+  selectedMonth: number | 'all' | number[]
 ): SampleAllocationRow[] {
-  const records =
-    selectedMonth === 'all'
-      ? countryRecords
-      : countryRecords.filter((r) => r.month === Number(selectedMonth));
+  const records = Array.isArray(selectedMonth)
+    ? countryRecords.filter((r) => selectedMonth.includes(r.month))
+    : selectedMonth === 'all'
+    ? countryRecords
+    : countryRecords.filter((r) => r.month === Number(selectedMonth));
 
   const totalPv = records.reduce((acc, r) => acc + r.pvs, 0);
   const countryPvMap = new Map<string, number>();
@@ -670,11 +1101,14 @@ export function calculateSampleAllocation(
 /**
  * Calculate Market Performance Table
  */
-export function calculateMarketPerformance(selectedMonth: number | 'all'): MarketPerformanceRow[] {
-  const records =
-    selectedMonth === 'all'
-      ? countryRecords
-      : countryRecords.filter((r) => r.month === Number(selectedMonth));
+export function calculateMarketPerformance(
+  selectedMonth: number | 'all' | number[]
+): MarketPerformanceRow[] {
+  const records = Array.isArray(selectedMonth)
+    ? countryRecords.filter((r) => selectedMonth.includes(r.month))
+    : selectedMonth === 'all'
+    ? countryRecords
+    : countryRecords.filter((r) => r.month === Number(selectedMonth));
 
   const totalBlockAll = records.reduce((acc, r) => acc + r.blockAds, 0);
 
@@ -743,11 +1177,14 @@ export function calculateMarketPerformance(selectedMonth: number | 'all'): Marke
 /**
  * Calculate Folder Performance Table
  */
-export function calculateFolderPerformance(selectedMonth: number | 'all'): FolderPerformanceRow[] {
-  const records =
-    selectedMonth === 'all'
-      ? folderRecords
-      : folderRecords.filter((r) => r.month === Number(selectedMonth));
+export function calculateFolderPerformance(
+  selectedMonth: number | 'all' | number[]
+): FolderPerformanceRow[] {
+  const records = Array.isArray(selectedMonth)
+    ? folderRecords.filter((r) => selectedMonth.includes(r.month))
+    : selectedMonth === 'all'
+    ? folderRecords
+    : folderRecords.filter((r) => r.month === Number(selectedMonth));
 
   const totalBlockAll = records.reduce((acc, r) => acc + r.blockAds, 0);
 
