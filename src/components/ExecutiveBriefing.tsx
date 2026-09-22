@@ -10,9 +10,12 @@ import {
   Globe2,
   Users,
   ShieldAlert,
+  Info,
+  Calculator,
 } from 'lucide-react';
 import { ExecutiveKpiSummary, ActiveAlert, SampleAllocationRow } from '../types';
 import { formatNumber, formatCompactNumber } from '../services/dataService';
+import { MetricKey } from './MetricFormulaModal';
 
 interface ExecutiveBriefingProps {
   summary: ExecutiveKpiSummary;
@@ -20,6 +23,7 @@ interface ExecutiveBriefingProps {
   alerts: ActiveAlert[];
   sampleAllocationRows: SampleAllocationRow[];
   selectedMonth: number | 'all';
+  onOpenFormula?: (metric: MetricKey) => void;
 }
 
 export const ExecutiveBriefing: React.FC<ExecutiveBriefingProps> = ({
@@ -28,6 +32,7 @@ export const ExecutiveBriefing: React.FC<ExecutiveBriefingProps> = ({
   alerts,
   sampleAllocationRows,
   selectedMonth,
+  onOpenFormula,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -91,7 +96,7 @@ ${insights.map((ins, i) => `${i + 1}. ${ins}`).join('\n')}
           <div className="flex items-center gap-2">
             <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <FileText className="h-4 w-4 text-red-700" />
-              Bản tin Điều hành Ban Lãnh đạo (Executive Briefing)
+              Bản tin Điều hành (Executive Briefing)
             </h3>
             <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
               Khách quan & Minh bạch dữ liệu
@@ -102,22 +107,46 @@ ${insights.map((ins, i) => `${i + 1}. ${ins}`).join('\n')}
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold shadow-2xs transition-colors self-start sm:self-auto"
-        >
-          {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-          <span>{copied ? 'Đã sao chép vào bộ nhớ tạm!' : 'Sao chép Bản tin Điều hành'}</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {onOpenFormula && (
+            <button
+              type="button"
+              onClick={() => onOpenFormula('kpiAttainment')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+              title="Bấm để xem công thức tính các chỉ số"
+            >
+              <Calculator className="h-3.5 w-3.5 text-slate-600" />
+              <span>Xem công thức chỉ số</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+          >
+            {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+            <span>{copied ? 'Đã sao chép vào bộ nhớ tạm!' : 'Sao chép Bản tin'}</span>
+          </button>
+        </div>
       </div>
 
       {/* 6 Executive Answer Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
         {/* Q1: Hôm nay đạt KPI hay chưa? */}
-        <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
-          <div className="text-xs text-slate-500 font-semibold mb-1">
-            1. Hôm nay đạt KPI hay chưa?
+        <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col justify-between group">
+          <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1">
+            <span>1. Đạt KPI hay chưa?</span>
+            {onOpenFormula && (
+              <button
+                type="button"
+                onClick={() => onOpenFormula('kpiAttainment')}
+                className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                title="Xem công thức tính KPI Attainment"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {isKpiMet ? (
@@ -139,9 +168,19 @@ ${insights.map((ins, i) => `${i + 1}. ${ins}`).join('\n')}
         </div>
 
         {/* Q2: Can run ads tăng hay giảm? */}
-        <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
-          <div className="text-xs text-slate-500 font-semibold mb-1">
-            2. Can Run Ads đang tăng hay giảm?
+        <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col justify-between group">
+          <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1">
+            <span>2. Can Run Ads đang tăng hay giảm?</span>
+            {onOpenFormula && (
+              <button
+                type="button"
+                onClick={() => onOpenFormula('canRunAdsPv')}
+                className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                title="Xem công thức tính Can Run Ads PV"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span
@@ -172,9 +211,19 @@ ${insights.map((ins, i) => `${i + 1}. ${ins}`).join('\n')}
         </div>
 
         {/* Q3: Block ads tăng hay giảm? */}
-        <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
-          <div className="text-xs text-slate-500 font-semibold mb-1">
-            3. Block Ads đang tăng hay giảm?
+        <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col justify-between group">
+          <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1">
+            <span>3. Block Ads đang tăng hay giảm?</span>
+            {onOpenFormula && (
+              <button
+                type="button"
+                onClick={() => onOpenFormula('blockAdsPv')}
+                className="p-1 rounded text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
+                title="Xem công thức tính Block Ads PV"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span
@@ -205,9 +254,19 @@ ${insights.map((ins, i) => `${i + 1}. ${ins}`).join('\n')}
         </div>
 
         {/* Q4: Tỷ lệ block ads hiện tại? */}
-        <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
-          <div className="text-xs text-slate-500 font-semibold mb-1">
-            4. Tỷ lệ Block Ads hiện tại là bao nhiêu?
+        <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col justify-between group">
+          <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1">
+            <span>4. Tỷ lệ Block Ads hiện tại là bao nhiêu?</span>
+            {onOpenFormula && (
+              <button
+                type="button"
+                onClick={() => onOpenFormula('blockRate')}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                title="Xem công thức tính Block Rate"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
           <div className="text-xl font-black text-slate-900 font-mono">
             {currentBlockRate}%

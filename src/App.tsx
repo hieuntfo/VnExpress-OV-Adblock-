@@ -33,6 +33,7 @@ import { DrillDownModal, ModalType } from './components/DrillDownModal';
 import { UploadModal } from './components/UploadModal';
 import { SettingsModal } from './components/SettingsModal';
 import { DataQualityModal } from './components/DataQualityModal';
+import { MetricFormulaModal, MetricKey } from './components/MetricFormulaModal';
 import {
   LayoutDashboard,
   Calendar,
@@ -116,6 +117,7 @@ export default function App() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [formulaModalMetric, setFormulaModalMetric] = useState<MetricKey | null>(null);
 
   // Active view tab for clean executive navigation
   const [activeTab, setActiveTab] = useState<
@@ -406,18 +408,19 @@ export default function App() {
 
         {/* 6 Executive KPI Cards (Always visible on all tabs as North Star metrics) */}
         <section aria-label="Executive KPI Cards">
-          <KpiCards summary={summary} />
+          <KpiCards summary={summary} onOpenFormula={(metric) => setFormulaModalMetric(metric)} />
         </section>
 
         {/* Tab 1: Executive Briefing */}
         {(activeTab === 'all' || activeTab === 'briefing') && (
-          <section id="executive-briefing" aria-label="Bản tin Điều hành Ban Lãnh đạo">
+          <section id="executive-briefing" aria-label="Bản tin Điều hành">
             <ExecutiveBriefing
               summary={summary}
               insights={insights}
               alerts={alerts}
               sampleAllocationRows={sampleAllocationRows}
               selectedMonth={filters.selectedMonth}
+              onOpenFormula={(metric) => setFormulaModalMetric(metric)}
             />
           </section>
         )}
@@ -532,6 +535,14 @@ export default function App() {
         onClose={() => setIsAuditModalOpen(false)}
         audit={audit}
         dataQualityReport={dataQualityReport}
+      />
+
+      {/* Metric Formula Explanation Modal */}
+      <MetricFormulaModal
+        isOpen={formulaModalMetric !== null}
+        onClose={() => setFormulaModalMetric(null)}
+        initialMetric={formulaModalMetric || 'kpiAttainment'}
+        summary={summary}
       />
 
       {/* Floating Scroll to Top Button */}

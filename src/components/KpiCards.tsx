@@ -8,28 +8,41 @@ import {
   CheckCircle2,
   AlertCircle,
   HelpCircle,
+  Info,
 } from 'lucide-react';
 import { ExecutiveKpiSummary } from '../types';
 import { formatNumber, formatCompactNumber, formatPercent } from '../services/dataService';
+import { MetricKey } from './MetricFormulaModal';
 
 interface KpiCardsProps {
   summary: ExecutiveKpiSummary;
+  onOpenFormula?: (metric: MetricKey) => void;
 }
 
-export const KpiCards: React.FC<KpiCardsProps> = ({ summary }) => {
+export const KpiCards: React.FC<KpiCardsProps> = ({ summary, onOpenFormula }) => {
   const isAttained = summary.kpiGap >= 0;
   const isBlockRateBetter = summary.blockRateChangePp <= 0; // Negative change in block rate is good
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
       {/* 1. Total Pageviews */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between group">
         <div>
           <div className="flex items-center justify-between text-slate-500 mb-1">
             <span className="text-xs font-semibold tracking-wide uppercase text-slate-500">
               Total Pageviews
             </span>
-            <Eye className="h-4 w-4 text-slate-400" />
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onOpenFormula?.('totalPageviews')}
+                className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                title="Bấm để xem công thức tính Total Pageviews"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+              <Eye className="h-3.5 w-3.5 text-slate-300" />
+            </div>
           </div>
           <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
             {formatCompactNumber(summary.totalPageviews)}
@@ -60,7 +73,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ summary }) => {
       </div>
 
       {/* 2. Can Run Ads PV (CORE KPI) */}
-      <div className="bg-white border-2 border-red-600/30 rounded-xl p-4 shadow-xs relative overflow-hidden flex flex-col justify-between">
+      <div className="bg-white border-2 border-red-600/30 rounded-xl p-4 shadow-xs relative overflow-hidden flex flex-col justify-between group">
         <div className="absolute top-0 right-0 bg-red-700 text-white text-[9px] font-black px-2 py-0.5 rounded-bl tracking-wider">
           CORE KPI
         </div>
@@ -69,6 +82,14 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ summary }) => {
             <span className="text-xs font-bold tracking-wide uppercase text-red-900">
               Can Run Ads PV
             </span>
+            <button
+              type="button"
+              onClick={() => onOpenFormula?.('canRunAdsPv')}
+              className="p-1 mr-14 rounded-md text-red-500/80 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+              title="Bấm để xem công thức tính Can Run Ads PV"
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
           </div>
           <div className="text-2xl font-black text-red-900 tracking-tight">
             {formatCompactNumber(summary.canRunAdsPv)}
@@ -97,13 +118,23 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ summary }) => {
       </div>
 
       {/* 3. Block Ads PV (Lower is better) */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between group">
         <div>
           <div className="flex items-center justify-between text-slate-500 mb-1">
             <span className="text-xs font-semibold tracking-wide uppercase text-slate-500">
               Block Ads PV
             </span>
-            <ShieldAlert className="h-4 w-4 text-amber-500" />
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onOpenFormula?.('blockAdsPv')}
+                className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
+                title="Bấm để xem công thức tính Block Ads PV"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+              <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />
+            </div>
           </div>
           <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
             {formatCompactNumber(summary.blockAdsPv)}
@@ -133,12 +164,22 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ summary }) => {
       </div>
 
       {/* 4. Block Rate (%) */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between group">
         <div>
           <div className="flex items-center justify-between text-slate-500 mb-1">
-            <span className="text-xs font-semibold tracking-wide uppercase text-slate-500">
-              Block Rate
-            </span>
+            <div className="flex items-center gap-1">
+              <span className="text-xs font-semibold tracking-wide uppercase text-slate-500">
+                Block Rate
+              </span>
+              <button
+                type="button"
+                onClick={() => onOpenFormula?.('blockRate')}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Bấm để xem công thức tính Block Rate"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <span className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-medium">
               Càng thấp càng tốt
             </span>
@@ -174,13 +215,23 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ summary }) => {
       </div>
 
       {/* 5. KPI Attainment */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between group">
         <div>
           <div className="flex items-center justify-between text-slate-500 mb-1">
             <span className="text-xs font-semibold tracking-wide uppercase text-slate-500">
               KPI Attainment
             </span>
-            <Target className="h-4 w-4 text-slate-400" />
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onOpenFormula?.('kpiAttainment')}
+                className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                title="Bấm để xem công thức tính KPI Attainment"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+              <Target className="h-3.5 w-3.5 text-slate-400" />
+            </div>
           </div>
           <div className="flex items-baseline gap-1.5">
             <span
@@ -233,7 +284,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ summary }) => {
 
       {/* 6. KPI Gap */}
       <div
-        className={`rounded-xl p-4 shadow-xs border transition-all flex flex-col justify-between ${
+        className={`rounded-xl p-4 shadow-xs border transition-all flex flex-col justify-between group ${
           isAttained
             ? 'bg-emerald-50/50 border-emerald-200'
             : 'bg-rose-50/40 border-rose-200'
@@ -244,6 +295,14 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ summary }) => {
             <span className="text-xs font-semibold tracking-wide uppercase text-slate-700">
               KPI Gap (Thừa / Thiếu)
             </span>
+            <button
+              type="button"
+              onClick={() => onOpenFormula?.('kpiGap')}
+              className="p-1 rounded-md text-slate-500 hover:text-slate-800 hover:bg-white/60 transition-colors cursor-pointer"
+              title="Bấm để xem công thức tính KPI Gap"
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
           </div>
           <div
             className={`text-2xl font-extrabold tracking-tight ${
