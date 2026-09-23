@@ -28,7 +28,6 @@ export const SampleAllocationSection: React.FC<SampleAllocationSectionProps> = (
   onResetAllocations,
   selectedMonth,
 }) => {
-  const [activeTab, setActiveTab] = useState<'market' | 'device' | 'browser'>('market');
   const [editingAllocations, setEditingAllocations] = useState<Record<string, string>>({});
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -133,52 +132,23 @@ export const SampleAllocationSection: React.FC<SampleAllocationSectionProps> = (
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-slate-200 mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-4 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setActiveTab('market')}
-            className={`pb-2.5 border-b-2 transition-colors ${
-              activeTab === 'market'
-                ? 'border-red-700 text-red-700'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            Theo Thị trường ({topRows.length} thị trường hàng đầu)
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('device')}
-            className={`pb-2.5 border-b-2 transition-colors ${
-              activeTab === 'device'
-                ? 'border-red-700 text-red-700'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            Theo Thiết bị (Desktop / Mobile)
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('browser')}
-            className={`pb-2.5 border-b-2 transition-colors ${
-              activeTab === 'browser'
-                ? 'border-red-700 text-red-700'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            Theo Nhóm Thử nghiệm (Test vs Control)
-          </button>
+      {/* Header Bar & Methodology Info (i) */}
+      <div className="border-b border-slate-200 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+          <span>Phân bổ mẫu theo 15 Thị trường hải ngoại</span>
+          <span className="inline-flex items-center gap-1 text-[11px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded" title="Phân bổ mẫu thực tế = Lượng PV thị trường / Tổng PV toàn bộ thị trường">
+            <Info className="h-3 w-3 text-slate-400" />
+            Đối soát chuẩn tỷ trọng tự nhiên
+          </span>
         </div>
 
-        <span className="text-[11px] text-slate-500 hidden sm:inline font-mono">
-          Tổng Target đã cấu hình: <strong>{totalConfiguredTarget.toFixed(1)}%</strong>
+        <span className="text-[11px] text-slate-500 font-mono">
+          Tổng Target đã cấu hình: <strong className="text-slate-900">{totalConfiguredTarget.toFixed(1)}%</strong>
         </span>
       </div>
 
-      {activeTab === 'market' ? (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse">
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
                 <th className="py-2.5 px-3">Thị trường</th>
@@ -268,15 +238,6 @@ export const SampleAllocationSection: React.FC<SampleAllocationSectionProps> = (
             </tbody>
           </table>
         </div>
-      ) : (
-        <div className="p-8 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
-          <Info className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-          <h4 className="text-sm font-bold text-slate-700">Dữ liệu thiết bị & nhóm thử nghiệm chưa sẵn sàng</h4>
-          <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-            Theo quy tắc bảo toàn dữ liệu (No data interpolation), 3 tập tin nguồn hiện tại chưa chứa trường phân tách theo Thiết bị (Desktop/Mobile) hoặc Nhóm Thử nghiệm (Test vs Control). Khi ban kỹ thuật bổ sung cột log tương ứng, bảng này sẽ tự động tổng hợp.
-          </p>
-        </div>
-      )}
     </div>
   );
 };

@@ -15,7 +15,7 @@ import { DataQualityReport } from '../types';
 
 interface NavbarProps {
   onOpenUpload: () => void;
-  onOpenSettings: () => void;
+  onOpenSettings?: () => void;
   onOpenDataQuality: () => void;
   onOpenTechDoc?: () => void;
   onResetData: () => void;
@@ -70,17 +70,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Action buttons */}
           <div className="flex items-center flex-wrap gap-2">
-            {/* Tech Spec KPI Button */}
+            {/* Info KPI Button */}
             {onOpenTechDoc && (
               <button
                 onClick={onOpenTechDoc}
                 type="button"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold text-white shadow-xs hover:opacity-90 transition-opacity cursor-pointer"
                 style={{ backgroundColor: '#9f224e' }}
-                title="Xem tài liệu đặc tả KPI và Lộ trình quốc gia Order Tech (22/09/2026)"
+                title="Bấm xem thông tin chi tiết về 2 KPI Cốt lõi, Công thức tính và Lộ trình quốc gia Order Tech"
               >
                 <Target className="h-3.5 w-3.5" />
-                <span>Spec KPI (Order Tech)</span>
+                <span>Info KPI</span>
               </button>
             )}
 
@@ -93,7 +93,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
                   : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
               }`}
-              title="Xem kiểm định chất lượng dữ liệu"
+              title="Báo cáo kiểm định chất lượng: Đối soát 100% không mất mát giữa Country, Folder và Date"
             >
               {dataQuality.rulePassed ? (
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
@@ -103,25 +103,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>Kiểm định ({dataQuality.totalRecordsChecked.toLocaleString()} dòng)</span>
             </button>
 
-            {/* Upload button */}
+            {/* Upload button (3 CSV files concurrent upload) */}
             <button
               onClick={onOpenUpload}
               type="button"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
+              title="Cập nhật đồng thời 3 file .csv: Date KPI, Country, Folder"
             >
-              <Upload className="h-3.5 w-3.5 text-slate-500" />
-              <span>Cập nhật CSV</span>
-            </button>
-
-            {/* Settings button */}
-            <button
-              onClick={onOpenSettings}
-              type="button"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
-              title="Cấu hình ngưỡng cảnh báo"
-            >
-              <Settings className="h-3.5 w-3.5 text-slate-500" />
-              <span>Ngưỡng cảnh báo</span>
+              <Upload className="h-3.5 w-3.5 text-red-700" />
+              <span>Cập nhật CSV (3 file)</span>
             </button>
 
             {/* Print button */}

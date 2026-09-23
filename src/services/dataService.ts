@@ -318,6 +318,137 @@ export function getDatasets() {
   };
 }
 
+export interface DetectedDatasetInfo {
+  type: 'date' | 'country' | 'folder' | 'unknown';
+  confidence: number;
+  detectedFields: string[];
+  missingRequiredFields: string[];
+  totalRows: number;
+  previewRows: Record<string, string>[];
+}
+
+export function analyzeCsvContent(csvContent: string, fileName?: string): DetectedDatasetInfo {
+  const trimmed = csvContent.trim();
+  if (!trimmed) {
+    return {
+      type: 'unknown',
+      confidence: 0,
+      detectedFields: [],
+      missingRequiredFields: ['File rỗng'],
+      totalRows: 0,
+      previewRows: [],
+    };
+  }
+
+  const parsed = Papa.parse<Record<string, string>>(trimmed, {
+    header: true,
+    preview: 5,
+    skipEmptyLines: true,
+  });
+
+  const fields = (parsed.meta.fields || []).map((f) => f.trim());
+  const lowerFields = fields.map((f) => f.toLowerCase());
+  const lowerName = (fileName || '').toLowerCase();
+
+  // Count rows approximately
+  const lines = trimmed.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  const totalRows = Math.max(0, lines.length - 1);
+
+  const hasFolderCol = lowerFields.some(
+    (f) => f.includes('folder') || f.includes('chuyên mục') || f.includes('chuyen muc')
+  );
+  const hasCountryCol = lowerFields.some(
+    (f) =>
+      f.includes('country') ||
+      f.includes('quốc gia') ||
+      f.includes('thị trường') ||
+      f.includes('market')
+  );
+  const hasDayCol = lowerFields.some(
+    (f) => f === 'day' || f === 'date' || f.includes('ngày') || f.includes('daily')
+  );
+  const hasPvsRunAds = lowerFields.some(
+    (f) => f.includes('run ads') || f.includes('runads') || f.includes('pvs_run_ads')
+  );
+  const hasPageviewCol = lowerFields.some(
+    (f) => f.includes('pageview') || f.includes('pv')
+  );
+  const hasKpiCol = lowerFields.some((f) => f.includes('kpi'));
+
+  // Priority 1: Folder
+  if (
+    hasFolderCol ||
+    (!hasCountryCol && !hasDayCol && (lowerName.includes('folder') || lowerName.includes('chuyen_muc')))
+  ) {
+    const missing: string[] = [];
+    if (!hasFolderCol) missing.push('Folder');
+    if (!lowerFields.some((f) => f.includes('month') || f.includes('tháng'))) missing.push('Month Number');
+    if (!lowerFields.some((f) => f === 'pvs' || f.includes('pvs'))) missing.push('PVS');
+    if (!hasPvsRunAds) missing.push('PVS run ads');
+
+    return {
+      type: 'folder',
+      confidence: hasFolderCol && hasPvsRunAds ? 1 : 0.8,
+      detectedFields: fields,
+      missingRequiredFields: missing,
+      totalRows,
+      previewRows: parsed.data,
+    };
+  }
+
+  // Priority 2: Country
+  if (
+    hasCountryCol ||
+    (!hasDayCol && (lowerName.includes('country') || lowerName.includes('market') || lowerName.includes('quoc_gia')))
+  ) {
+    const missing: string[] = [];
+    if (!hasCountryCol) missing.push('Country');
+    if (!lowerFields.some((f) => f.includes('month') || f.includes('tháng'))) missing.push('month');
+    if (!lowerFields.some((f) => f === 'pvs' || f.includes('pvs'))) missing.push('Pvs');
+    if (!hasPvsRunAds) missing.push('Pvs run ads');
+
+    return {
+      type: 'country',
+      confidence: hasCountryCol && hasPvsRunAds ? 1 : 0.8,
+      detectedFields: fields,
+      missingRequiredFields: missing,
+      totalRows,
+      previewRows: parsed.data,
+    };
+  }
+
+  // Priority 3: Date
+  if (
+    hasDayCol ||
+    lowerName.includes('date') ||
+    lowerName.includes('day') ||
+    (hasKpiCol && hasPageviewCol)
+  ) {
+    const missing: string[] = [];
+    if (!hasDayCol) missing.push('Day');
+    if (!hasKpiCol) missing.push('KPI');
+    if (!hasPageviewCol) missing.push('Pageview');
+
+    return {
+      type: 'date',
+      confidence: hasDayCol && (hasKpiCol || hasPageviewCol) ? 1 : 0.8,
+      detectedFields: fields,
+      missingRequiredFields: missing,
+      totalRows,
+      previewRows: parsed.data,
+    };
+  }
+
+  return {
+    type: 'unknown',
+    confidence: 0,
+    detectedFields: fields,
+    missingRequiredFields: ['Không nhận diện được định dạng phù hợp'],
+    totalRows,
+    previewRows: parsed.data,
+  };
+}
+
 export function updateFolderDataset(csv: string) {
   folderRecords = parseFolderCsv(csv);
   lastRefreshTime = new Date();
@@ -334,6 +465,28 @@ export function updateDateDataset(csv: string) {
   dateRecords = parseDateCsv(csv);
   lastRefreshTime = new Date();
   dataSourceInfo = 'Dữ liệu ngày cập nhật từ file CSV tải lên';
+}
+
+export function updateAllDatasets(datasets: {
+  folderCsv?: string;
+  countryCsv?: string;
+  dateCsv?: string;
+}) {
+  let updatedCount = 0;
+  if (datasets.folderCsv && datasets.folderCsv.trim()) {
+    folderRecords = parseFolderCsv(datasets.folderCsv);
+    updatedCount++;
+  }
+  if (datasets.countryCsv && datasets.countryCsv.trim()) {
+    countryRecords = parseCountryCsv(datasets.countryCsv);
+    updatedCount++;
+  }
+  if (datasets.dateCsv && datasets.dateCsv.trim()) {
+    dateRecords = parseDateCsv(datasets.dateCsv);
+    updatedCount++;
+  }
+  lastRefreshTime = new Date();
+  dataSourceInfo = `Dữ liệu cập nhật từ ${updatedCount} file CSV tải lên đồng thời`;
 }
 
 export function resetToDefaultDatasets() {

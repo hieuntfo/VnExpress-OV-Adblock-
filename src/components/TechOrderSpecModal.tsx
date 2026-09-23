@@ -48,14 +48,14 @@ export const TechOrderSpecModal: React.FC<TechOrderSpecModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black tracking-tight">
-                  AdBlock OV VnExpress — Quốc gia & KPI Order Tech
+                  Info KPI — AdBlock OV VnExpress (Order Tech 22/09/2026)
                 </h2>
                 <span className="text-[10px] uppercase font-bold bg-white/20 px-2 py-0.5 rounded-full">
-                  22/09/2026
+                  Chính thức
                 </span>
               </div>
               <p className="text-xs text-red-100/90 font-medium">
-                Tài liệu đặc tả nghiệp vụ & Mục tiêu điều hành chính thức
+                Tài liệu đặc tả nghiệp vụ, 2 KPI cốt lõi, Lộ trình quốc gia & Ngưỡng an toàn
               </p>
             </div>
           </div>
@@ -518,6 +518,90 @@ export const TechOrderSpecModal: React.FC<TechOrderSpecModalProps> = ({
                   <p className="text-slate-600 mt-1">
                     Giới hạn 2 bài/ngày, bài thứ 3 chặn hoàn toàn. Reset 00:00 giờ địa phương user (IP geolocation). Áp dụng cả user đăng nhập MyVnE.
                   </p>
+                </div>
+              </div>
+
+              {/* Alert Thresholds and Safety Guardrails */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4 text-rose-700" />
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    Các Ngưỡng Cảnh báo & Ngưỡng An toàn (Alert Thresholds & Guardrails):
+                  </h4>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  {/* Ngưỡng 1 */}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 flex items-center gap-1">
+                        <Info className="h-3.5 w-3.5 text-blue-600" />
+                        1. Ngưỡng Cảnh báo Block Rate
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold text-[10px]">
+                        KPI #1
+                      </span>
+                    </div>
+                    <p className="text-slate-600">
+                      • <strong>Baseline:</strong> 14.80% (TB T7-T8/2026).<br />
+                      • <strong>Ngưỡng cảnh báo đỏ:</strong> Nếu Block Rate &gt; 14.80% (không giảm được).<br />
+                      • <strong>Mốc an toàn:</strong> Giảm ≥ 10% (Block Rate ≤ 13.32%).<br />
+                      • <strong>Mục tiêu chính thức:</strong> Giảm ≥ 15% (Block Rate ≤ 12.58%).
+                    </p>
+                  </div>
+
+                  {/* Ngưỡng 2 */}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 flex items-center gap-1">
+                        <Info className="h-3.5 w-3.5 text-blue-600" />
+                        2. Ngưỡng Cảnh báo Attainment (+10%)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                        KPI #2
+                      </span>
+                    </div>
+                    <p className="text-slate-600">
+                      • <strong>Baseline Run Ads:</strong> 31.18 tr PV/tháng.<br />
+                      • <strong>Target (+10%):</strong> ≥ 34.30 tr PV/tháng.<br />
+                      • <strong>Ngưỡng cảnh báo vàng:</strong> Khi tiến độ đạt &lt; 90% target.<br />
+                      • <strong>Ngưỡng cảnh báo đỏ:</strong> Khi tiến độ đạt &lt; 80% target.
+                    </p>
+                  </div>
+
+                  {/* Ngưỡng 3 */}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 flex items-center gap-1">
+                        <Info className="h-3.5 w-3.5 text-amber-600" />
+                        3. Ngưỡng Chuyển đổi NCR &lt; 5%
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px]">
+                        Hành vi User
+                      </span>
+                    </div>
+                    <p className="text-slate-600">
+                      • <strong>Cảnh báo khẩn cấp:</strong> Nếu sau 3 ngày pilot tại bất kỳ thị trường nào mà tỷ lệ NCR (Net Conversion Rate - tỷ lệ người dùng gỡ adblock thành công) &lt; 5%.<br />
+                      • <strong>Hành động:</strong> Lập tức tối ưu lại nội dung và hình ảnh của Tutorial Modal.
+                    </p>
+                  </div>
+
+                  {/* Ngưỡng 4 */}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 flex items-center gap-1">
+                        <Info className="h-3.5 w-3.5 text-purple-600" />
+                        4. Ngưỡng An toàn SEO & Trải nghiệm
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 font-bold text-[10px]">
+                        SEO Guardrail
+                      </span>
+                    </div>
+                    <p className="text-slate-600">
+                      • <strong>Quy tắc cứng:</strong> Tuyệt đối không kích hoạt Modal chặn toàn màn hình (Bước 3) khi độc giả truy cập từ Thiết bị di động (Mobile) có nguồn từ Google Organic Search.<br />
+                      • <strong>Mục đích:</strong> Tránh rủi ro bị Google phạt trải nghiệm trang và tụt thứ hạng SEO.
+                    </p>
+                  </div>
                 </div>
               </div>
 

@@ -51,7 +51,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9f224e] hover:text-[#7f183c] hover:underline cursor-pointer transition-colors"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            Xem Spec KPI & Kế hoạch Quốc gia (Order Tech) →
+            Xem Info KPI & Kế hoạch Quốc gia →
           </button>
         )}
       </div>
