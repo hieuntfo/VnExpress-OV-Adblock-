@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { TrendingUp, Layers, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { NormalizedDateRecord } from '../types';
-import { formatNumber, formatCompactNumber } from '../services/dataService';
+import { formatNumber, formatCompactNumber, formatDateVi } from '../services/dataService';
 
 interface CumulativeChartProps {
   dates: NormalizedDateRecord[];
@@ -53,10 +53,12 @@ export const CumulativeChart: React.FC<CumulativeChartProps> = ({ dates }) => {
     });
 
     const recordedDays = data.filter((d) => d.cumActual !== null);
+    const firstRecorded = recordedDays[0];
     const lastRecorded = recordedDays[recordedDays.length - 1];
 
     return {
       points: data,
+      firstRecorded,
       lastRecorded,
       daysAbove,
       daysBelow,
@@ -236,7 +238,10 @@ export const CumulativeChart: React.FC<CumulativeChartProps> = ({ dates }) => {
         <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-slate-700 border border-slate-200">
           <div>
             <span className="font-bold block text-slate-900">Tổng cộng {cumulativeData.totalRecordedDays} ngày</span>
-            <span className="text-slate-500 text-[11px]">Từ 01/01/2026 đến 03/09/2026</span>
+            <span className="text-slate-500 text-[11px]">
+              Từ {cumulativeData.firstRecorded ? formatDateVi(cumulativeData.firstRecorded.dayString) : '01/01/2026'} đến{' '}
+              {cumulativeData.lastRecorded ? formatDateVi(cumulativeData.lastRecorded.dayString) : '03/09/2026'}
+            </span>
           </div>
           <span className="text-xs font-mono font-bold text-slate-800 bg-white px-2 py-1 rounded border border-slate-200">
             {formatCompactNumber(cumulativeData.lastRecorded?.cumActual)} PV

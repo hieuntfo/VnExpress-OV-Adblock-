@@ -8,7 +8,7 @@ import {
   Download,
 } from 'lucide-react';
 import { DataQualityAudit, DataQualityReport } from '../types';
-import { formatNumber } from '../services/dataService';
+import { formatNumber, formatDateVi } from '../services/dataService';
 
 interface DataQualityModalProps {
   isOpen: boolean;
@@ -125,7 +125,7 @@ export const DataQualityModal: React.FC<DataQualityModalProps> = ({
                     </td>
                     <td className="py-2.5 px-3 text-slate-600 font-sans">Ngày (Daily)</td>
                     <td className="py-2.5 px-3 text-right text-slate-700">
-                      {audit.dateRecordedDays} ngày (đến 03/09)
+                      {audit.dateRecordedDays} ngày (đến {audit.latestRecordedDate ? formatDateVi(audit.latestRecordedDate).slice(0, 5) : '03/09'})
                     </td>
                     <td className="py-2.5 px-3 text-right font-bold text-slate-900">
                       {formatNumber(audit.dateSumActual)}

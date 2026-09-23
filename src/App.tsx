@@ -17,6 +17,9 @@ import {
   generateActiveAlerts,
   resetToDefaultDatasets,
   getActiveMonthsFromFilter,
+  formatDateVi,
+  getLatestDateString,
+  getEarliestDateString,
 } from './services/dataService';
 import { Navbar } from './components/Navbar';
 import { FilterBar } from './components/FilterBar';
@@ -594,7 +597,7 @@ export default function App() {
             VnExpress OV Adblock Control Tower &copy; 2026 &bull; Ban Kỹ thuật & Phát triển Sản phẩm VnExpress
           </span>
           <span className="font-mono text-[11px] text-slate-400">
-            Dữ liệu ghi nhận: 01/01/2026 - 03/09/2026 &bull; No Data Interpolation Enforced
+            Dữ liệu ghi nhận: {formatDateVi(getEarliestDateString())} - {formatDateVi(getLatestDateString())} &bull; No Data Interpolation Enforced
           </span>
         </div>
       </footer>

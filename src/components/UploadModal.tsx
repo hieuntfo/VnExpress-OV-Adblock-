@@ -112,14 +112,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   const [pasteTargetType, setPasteTargetType] = useState<DatasetType>('date');
   const [pastedText, setPastedText] = useState('');
 
+  const [isApplying, setIsApplying] = useState(false);
+
   const multiFileInputRef = useRef<HTMLInputElement>(null);
   const singleDateInputRef = useRef<HTMLInputElement>(null);
   const singleCountryInputRef = useRef<HTMLInputElement>(null);
   const singleFolderInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
-
-  const [isApplying, setIsApplying] = useState(false);
 
   // Process list of incoming files (can be 1, 2, or 3 files)
   const handleIncomingFiles = async (files: FileList | File[]) => {

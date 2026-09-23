@@ -9,13 +9,15 @@ import {
   Calendar,
 } from 'lucide-react';
 import { DataQualityAudit } from '../types';
-import { formatNumber } from '../services/dataService';
+import { formatNumber, formatDateVi } from '../services/dataService';
 
 interface DataQualityMonitorProps {
   audit: DataQualityAudit;
 }
 
 export const DataQualityMonitor: React.FC<DataQualityMonitorProps> = ({ audit }) => {
+  const latestDateFormatted = audit.latestRecordedDate ? formatDateVi(audit.latestRecordedDate) : '03/09/2026';
+  const earliestDateFormatted = audit.earliestRecordedDate ? formatDateVi(audit.earliestRecordedDate) : '01/01/2026';
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-xs p-5">
       {/* Header */}
@@ -90,9 +92,9 @@ export const DataQualityMonitor: React.FC<DataQualityMonitorProps> = ({ audit })
             {formatNumber(audit.dateSumActual)} PV
           </div>
           <div className="text-xs text-slate-600 mt-1 space-y-0.5 font-mono">
-            <div>Tổng 273 ngày (01/01 đến 30/09/2026)</div>
-            <div>Đã ghi nhận: {audit.dateRecordedDays} ngày (đến 03/09)</div>
-            <div>Chưa có dữ liệu thực tế: {audit.dateMissingDays} ngày (sau 03/09)</div>
+            <div>Tổng {audit.dateRecordedDays + audit.dateMissingDays} ngày ({earliestDateFormatted} đến {latestDateFormatted})</div>
+            <div>Đã ghi nhận: {audit.dateRecordedDays} ngày (đến {latestDateFormatted})</div>
+            <div>Chưa có dữ liệu thực tế: {audit.dateMissingDays} ngày (sau {latestDateFormatted})</div>
           </div>
         </div>
       </div>

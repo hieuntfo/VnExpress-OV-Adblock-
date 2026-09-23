@@ -192,6 +192,8 @@ export interface DataQualityAudit {
   reconciliationDeltaFolderCountry: number;
   reconciliationDeltaDateFolder: number;
   reconciliationDeltaPct: number;
+  latestRecordedDate?: string;
+  earliestRecordedDate?: string;
 }
 
 export interface DataQualityReport {

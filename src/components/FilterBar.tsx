@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { FilterState, DateRangePreset } from '../types';
 import { DateRangeModal } from './DateRangeModal';
-import { formatDateVi } from '../services/dataService';
+import { formatDateVi, getLatestDateString, getPreviousDateString } from '../services/dataService';
 
 interface FilterBarProps {
   filter: FilterState;
@@ -30,6 +30,12 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   availableMonths,
   grainNotice,
 }) => {
+  const latestDateStr = getLatestDateString();
+  const prevDateStr = getPreviousDateString();
+  const latestMonth = Number(latestDateStr.slice(5, 7)) || 9;
+  const prevMonth = Math.max(1, latestMonth - 1);
+  const todayDisplay = `${latestDateStr.slice(8, 10)}/${latestDateStr.slice(5, 7)}`;
+  const yesterdayDisplay = `${prevDateStr.slice(8, 10)}/${prevDateStr.slice(5, 7)}`;
   const handleMarketChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     onChangeFilter({ ...filter, market: e.target.value });
   };
@@ -162,12 +168,87 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 className="bg-transparent font-medium text-slate-800 focus:outline-none cursor-pointer pr-1"
               >
                 <option value="all">Toàn bộ OV (Tất cả)</option>
-                {uniqueMarkets.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
+                <optgroup label="Thị trường Thí điểm (Pilot Phase 1)">
+                  <option value="Japan">🇯🇵 Nhật Bản (Japan - Thí điểm)</option>
+                  <option value="Australia">🇦🇺 Úc (Australia - Thí điểm)</option>
+                </optgroup>
+                <optgroup label="Tất cả thị trường hải ngoại">
+                  {uniqueMarkets.map((m) => (
+                    <option key={m} value={m}>
+                      {m === 'United States' ? '🇺🇸 ' + m : m === 'Japan' ? '🇯🇵 ' + m : m === 'Australia' ? '🇦🇺 ' + m : m}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
+            </div>
+
+            {/* Quick Pilot Action Pills (Nhật Bản & Úc) */}
+            <div className="inline-flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() =>
+                  onChangeFilter({
+                    ...filter,
+                    market: filter.market.toLowerCase() === 'japan' ? 'all' : 'Japan',
+                  })
+                }
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  filter.market.toLowerCase() === 'japan'
+                    ? 'bg-rose-700 text-white shadow-xs ring-2 ring-rose-300'
+                    : 'bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-200 shadow-2xs'
+                }`}
+                title="Bấm nhanh để xem số liệu thí điểm Nhật Bản (bấm lại để về Toàn bộ OV)"
+              >
+                <span className="text-sm leading-none">🇯🇵</span>
+                <span>Nhật Bản</span>
+                <span className={`text-[10px] px-1 py-0.5 rounded font-semibold uppercase ${
+                  filter.market.toLowerCase() === 'japan' ? 'bg-white/20 text-white' : 'bg-rose-200/70 text-rose-900'
+                }`}>
+                  Thí điểm
+                </span>
+                {filter.market.toLowerCase() === 'japan' && (
+                  <span className="text-white text-xs font-bold ml-0.5">✓</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  onChangeFilter({
+                    ...filter,
+                    market: filter.market.toLowerCase() === 'australia' ? 'all' : 'Australia',
+                  })
+                }
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  filter.market.toLowerCase() === 'australia'
+                    ? 'bg-blue-700 text-white shadow-xs ring-2 ring-blue-300'
+                    : 'bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 shadow-2xs'
+                }`}
+                title="Bấm nhanh để xem số liệu thí điểm Úc (bấm lại để về Toàn bộ OV)"
+              >
+                <span className="text-sm leading-none">🇦🇺</span>
+                <span>Úc</span>
+                <span className={`text-[10px] px-1 py-0.5 rounded font-semibold uppercase ${
+                  filter.market.toLowerCase() === 'australia' ? 'bg-white/20 text-white' : 'bg-blue-200/70 text-blue-900'
+                }`}>
+                  Thí điểm
+                </span>
+                {filter.market.toLowerCase() === 'australia' && (
+                  <span className="text-white text-xs font-bold ml-0.5">✓</span>
+                )}
+              </button>
+
+              {filter.market !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => onChangeFilter({ ...filter, market: 'all' })}
+                  className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors"
+                  title="Xem lại Toàn bộ thị trường OV"
+                >
+                  <RotateCcw className="h-3 w-3 text-slate-500" />
+                  <span>Về Toàn bộ OV</span>
+                </button>
+              )}
             </div>
 
             {/* Folder Filter */}
@@ -222,7 +303,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              Hôm nay (03/09)
+              Hôm nay ({todayDisplay})
             </button>
             <button
               type="button"
@@ -233,29 +314,29 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              Hôm qua (02/09)
+              Hôm qua ({yesterdayDisplay})
             </button>
             <button
               type="button"
               onClick={() => handlePresetChange('this_month')}
               className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                !isCustomRangeActive && filter.timeMode === 'month' && filter.selectedMonth === 9
+                !isCustomRangeActive && filter.timeMode === 'month' && filter.selectedMonth === latestMonth
                   ? 'bg-slate-900 text-white font-semibold'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              Tháng 9 (MTD)
+              Tháng {latestMonth} (MTD)
             </button>
             <button
               type="button"
               onClick={() => handlePresetChange('prev_month')}
               className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                !isCustomRangeActive && filter.timeMode === 'month' && filter.selectedMonth === 8
+                !isCustomRangeActive && filter.timeMode === 'month' && filter.selectedMonth === prevMonth
                   ? 'bg-slate-900 text-white font-semibold'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              Tháng 8
+              Tháng {prevMonth}
             </button>
             <button
               type="button"

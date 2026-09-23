@@ -250,7 +250,33 @@ export const MarketTable: React.FC<MarketTableProps> = ({
                   className="hover:bg-slate-50 transition-colors cursor-pointer group"
                 >
                   <td className="py-2.5 px-3 font-bold text-slate-900 group-hover:text-red-700 transition-colors">
-                    {row.country}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">
+                        {row.country === 'Australia'
+                          ? '🇦🇺'
+                          : row.country === 'Japan'
+                          ? '🇯🇵'
+                          : row.country === 'United States'
+                          ? '🇺🇸'
+                          : row.country === 'Singapore'
+                          ? '🇸🇬'
+                          : row.country === 'Canada'
+                          ? '🇨🇦'
+                          : row.country === 'Germany'
+                          ? '🇩🇪'
+                          : row.country === 'United Kingdom'
+                          ? '🇬🇧'
+                          : row.country === 'France'
+                          ? '🇫🇷'
+                          : '🌐'}
+                      </span>
+                      <span>{row.country}</span>
+                      {(row.country === 'Australia' || row.country === 'Japan') && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                          Thí điểm
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-2.5 px-3 text-right font-mono text-slate-700">
                     {formatNumber(row.totalPv)}

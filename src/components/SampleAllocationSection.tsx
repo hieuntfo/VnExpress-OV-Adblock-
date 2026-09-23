@@ -170,7 +170,31 @@ export const SampleAllocationSection: React.FC<SampleAllocationSectionProps> = (
 
                 return (
                   <tr key={row.market} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-2.5 px-3 font-bold text-slate-900">{row.market}</td>
+                    <td className="py-2.5 px-3 font-bold text-slate-900">
+                      <div className="flex items-center gap-1.5">
+                        <span>
+                          {row.market === 'Australia'
+                            ? '🇦🇺'
+                            : row.market === 'Japan'
+                            ? '🇯🇵'
+                            : row.market === 'United States'
+                            ? '🇺🇸'
+                            : row.market === 'Singapore'
+                            ? '🇸🇬'
+                            : row.market === 'Canada'
+                            ? '🇨🇦'
+                            : row.market === 'Germany'
+                            ? '🇩🇪'
+                            : '🌐'}
+                        </span>
+                        <span>{row.market}</span>
+                        {(row.market === 'Australia' || row.market === 'Japan') && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                            Thí điểm
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-2.5 px-3 text-right font-mono text-slate-700">
                       {formatNumber(row.actualPv)}
                     </td>

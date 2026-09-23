@@ -21,7 +21,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { NormalizedDateRecord } from '../types';
-import { formatNumber, formatCompactNumber, formatPercent } from '../services/dataService';
+import { formatNumber, formatCompactNumber, formatPercent, formatDateVi } from '../services/dataService';
 
 interface DailyKpiSectionProps {
   dates: NormalizedDateRecord[];
@@ -29,7 +29,18 @@ interface DailyKpiSectionProps {
 }
 
 export const DailyKpiSection: React.FC<DailyKpiSectionProps> = ({ dates, onSelectDay }) => {
-  const [timeZoom, setTimeZoom] = useState<'all' | 'last30' | 'last60' | 'm9' | 'm8'>('all');
+  // Sorted recorded days with actual pageviews
+  const recordedDays = useMemo(() => {
+    return dates.filter((d) => d.pageview !== null).sort((a, b) => a.timestamp - b.timestamp);
+  }, [dates]);
+
+  const todayRecord = recordedDays.length > 0 ? recordedDays[recordedDays.length - 1] : null;
+  const yesterdayRecord = recordedDays.length > 1 ? recordedDays[recordedDays.length - 2] : null;
+
+  const latestMonth = todayRecord ? todayRecord.month : 9;
+  const prevMonth = Math.max(1, latestMonth - 1);
+
+  const [timeZoom, setTimeZoom] = useState<'all' | 'last30' | 'last60' | 'latest_m' | 'prev_m'>('all');
   const [showActual, setShowActual] = useState(true);
   const [showTarget, setShowTarget] = useState(true);
   const [showMa7, setShowMa7] = useState(true);
@@ -65,11 +76,11 @@ export const DailyKpiSection: React.FC<DailyKpiSectionProps> = ({ dates, onSelec
       };
     });
 
-    if (timeZoom === 'm9') {
-      return withMa.filter((d) => d.month === 9);
+    if (timeZoom === 'latest_m') {
+      return withMa.filter((d) => d.month === latestMonth);
     }
-    if (timeZoom === 'm8') {
-      return withMa.filter((d) => d.month === 8);
+    if (timeZoom === 'prev_m') {
+      return withMa.filter((d) => d.month === prevMonth);
     }
     if (timeZoom === 'last30') {
       const recorded = withMa.filter((d) => d.pageview !== null);
@@ -82,32 +93,23 @@ export const DailyKpiSection: React.FC<DailyKpiSectionProps> = ({ dates, onSelec
     }
 
     return withMa;
-  }, [dates, timeZoom]);
-
-  // Executive metrics calculations:
-  // Today (03/09/2026), Yesterday (02/09/2026), MTD (Tháng 9)
-  const recordedDays = useMemo(() => {
-    return dates.filter((d) => d.pageview !== null).sort((a, b) => a.timestamp - b.timestamp);
-  }, [dates]);
-
-  const todayRecord = recordedDays[recordedDays.length - 1]; // 2026-09-03
-  const yesterdayRecord = recordedDays[recordedDays.length - 2]; // 2026-09-02
+  }, [dates, timeZoom, latestMonth, prevMonth]);
 
   const mtdStats = useMemo(() => {
-    const m9Days = recordedDays.filter((d) => d.month === 9);
-    const actualCum = m9Days.reduce((acc, d) => acc + (d.pageview || 0), 0);
-    const targetCum = m9Days.reduce((acc, d) => acc + d.kpiTarget, 0);
+    const latestMonthDays = recordedDays.filter((d) => d.month === latestMonth);
+    const actualCum = latestMonthDays.reduce((acc, d) => acc + (d.pageview || 0), 0);
+    const targetCum = latestMonthDays.reduce((acc, d) => acc + d.kpiTarget, 0);
     const gap = actualCum - targetCum;
     const attainment = targetCum > 0 ? (actualCum / targetCum) * 100 : 0;
-    const avgDailyActual = m9Days.length > 0 ? actualCum / m9Days.length : 0;
-    const daysInMonth = 30;
+    const avgDailyActual = latestMonthDays.length > 0 ? actualCum / latestMonthDays.length : 0;
+    const daysInMonth = todayRecord ? new Date(todayRecord.year, todayRecord.month, 0).getDate() : 30;
     const projectedMonthTotal = avgDailyActual * daysInMonth;
     const totalMonthKpi = dates
-      .filter((d) => d.month === 9)
+      .filter((d) => d.month === latestMonth)
       .reduce((acc, d) => acc + d.kpiTarget, 0);
 
     return {
-      count: m9Days.length,
+      count: latestMonthDays.length,
       actualCum,
       targetCum,
       gap,
@@ -116,7 +118,7 @@ export const DailyKpiSection: React.FC<DailyKpiSectionProps> = ({ dates, onSelec
       projectedMonthTotal,
       totalMonthKpi,
     };
-  }, [recordedDays, dates]);
+  }, [recordedDays, dates, latestMonth, todayRecord]);
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
@@ -132,7 +134,7 @@ export const DailyKpiSection: React.FC<DailyKpiSectionProps> = ({ dates, onSelec
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Dữ liệu Pageview thực tế ghi nhận đến hết ngày 03/09/2026 kèm đường mục tiêu dự kiến đến hết tháng 9.
+            Dữ liệu Pageview thực tế ghi nhận đến hết ngày {todayRecord ? formatDateVi(todayRecord.dayString) : '03/09/2026'} kèm đường mục tiêu dự kiến đến hết tháng {latestMonth}.
           </p>
         </div>
 
@@ -146,7 +148,7 @@ export const DailyKpiSection: React.FC<DailyKpiSectionProps> = ({ dates, onSelec
                 timeZoom === 'all' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Tất cả (T1-T9)
+              Tất cả (T1-T{latestMonth})
             </button>
             <button
               type="button"
@@ -168,21 +170,21 @@ export const DailyKpiSection: React.FC<DailyKpiSectionProps> = ({ dates, onSelec
             </button>
             <button
               type="button"
-              onClick={() => setTimeZoom('m9')}
+              onClick={() => setTimeZoom('latest_m')}
               className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                timeZoom === 'm9' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                timeZoom === 'latest_m' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Tháng 9
+              Tháng {latestMonth}
             </button>
             <button
               type="button"
-              onClick={() => setTimeZoom('m8')}
+              onClick={() => setTimeZoom('prev_m')}
               className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                timeZoom === 'm8' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                timeZoom === 'prev_m' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Tháng 8
+              Tháng {prevMonth}
             </button>
           </div>
 
@@ -364,7 +366,7 @@ export const DailyKpiSection: React.FC<DailyKpiSectionProps> = ({ dates, onSelec
           </div>
           <div className="mt-2 text-[11px] text-slate-600 flex items-center justify-between">
             <span>* Mẹo: Click trực tiếp vào một cột ngày trên biểu đồ để mở bảng phân tích chi tiết ngày đó.</span>
-            <span>Các ngày sau 03/09/2026 hiển thị đường Target KPI định hướng tháng 9.</span>
+            <span>Các ngày sau {todayRecord ? formatDateVi(todayRecord.dayString) : '03/09/2026'} hiển thị đường Target KPI định hướng tháng {latestMonth}.</span>
           </div>
         </div>
 
@@ -384,7 +386,7 @@ export const DailyKpiSection: React.FC<DailyKpiSectionProps> = ({ dates, onSelec
               >
                 <div className="flex items-center justify-between text-xs mb-1">
                   <span className="font-bold text-slate-900 group-hover:text-red-700 transition-colors">
-                    Hôm nay (03/09/2026)
+                    Hôm nay ({formatDateVi(todayRecord.dayString)})
                   </span>
                   <ChevronRight className="h-3.5 w-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
                 </div>
@@ -421,7 +423,7 @@ export const DailyKpiSection: React.FC<DailyKpiSectionProps> = ({ dates, onSelec
               >
                 <div className="flex items-center justify-between text-xs mb-1">
                   <span className="font-bold text-slate-900 group-hover:text-red-700 transition-colors">
-                    Hôm qua (02/09/2026)
+                    Hôm qua ({formatDateVi(yesterdayRecord.dayString)})
                   </span>
                   <ChevronRight className="h-3.5 w-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
                 </div>
@@ -453,7 +455,7 @@ export const DailyKpiSection: React.FC<DailyKpiSectionProps> = ({ dates, onSelec
             {/* MTD Aggregated Block */}
             <div className="bg-slate-900 text-white rounded-lg p-3.5 shadow-xs">
               <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                <span>Tháng 9 Lũy kế (MTD)</span>
+                <span>Tháng {latestMonth} Lũy kế (MTD)</span>
                 <span className="text-slate-300 font-mono">{mtdStats.count} ngày ghi nhận</span>
               </div>
               <div className="text-xl font-black text-white">
@@ -480,7 +482,7 @@ export const DailyKpiSection: React.FC<DailyKpiSectionProps> = ({ dates, onSelec
           <div className="mt-4 pt-3 border-t border-slate-200 text-xs text-slate-600">
             <span className="font-semibold text-slate-800">Tốc độ chạy (Run-rate): </span>
             <span>
-              Trung bình 3 ngày đầu tháng 9 đạt {formatCompactNumber(mtdStats.avgDailyActual)} PV/ngày. Nếu giữ tốc độ này, dự báo tháng 9 đạt khoảng{' '}
+              Trung bình {mtdStats.count} ngày đầu tháng {latestMonth} đạt {formatCompactNumber(mtdStats.avgDailyActual)} PV/ngày. Nếu giữ tốc độ này, dự báo tháng {latestMonth} đạt khoảng{' '}
               <strong className="text-slate-900">{formatCompactNumber(mtdStats.projectedMonthTotal)} PV</strong>{' '}
               (so với KPI kế hoạch {formatCompactNumber(mtdStats.totalMonthKpi)} PV).
             </span>

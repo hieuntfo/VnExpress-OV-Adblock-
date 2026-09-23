@@ -249,6 +249,17 @@ export function getLatestDateString(): string {
 }
 
 /**
+ * Get the previous recorded date string dynamically
+ */
+export function getPreviousDateString(): string {
+  const recorded = dateRecords.filter((d) => d.pageview !== null).sort((a, b) => a.timestamp - b.timestamp);
+  if (recorded.length > 1) {
+    return recorded[recorded.length - 2].dayString;
+  }
+  return '2026-09-02';
+}
+
+/**
  * Get the earliest recorded date string dynamically
  */
 export function getEarliestDateString(): string {
@@ -2085,6 +2096,8 @@ export function performDataQualityAudit(): DataQualityAudit {
     reconciliationDeltaFolderCountry,
     reconciliationDeltaDateFolder,
     reconciliationDeltaPct,
+    latestRecordedDate: getLatestDateString(),
+    earliestRecordedDate: getEarliestDateString(),
   };
 }
 
