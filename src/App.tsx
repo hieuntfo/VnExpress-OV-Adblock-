@@ -150,7 +150,7 @@ export default function App() {
   // Active months resolution for tables and breakdowns
   const activeMonthsForTables = useMemo(() => {
     return getActiveMonthsFromFilter(filters);
-  }, [filters]);
+  }, [filters, dataVersion]);
 
   const selectedMonthForProps: number | 'all' = useMemo(() => {
     if (activeMonthsForTables === 'all') return 'all';

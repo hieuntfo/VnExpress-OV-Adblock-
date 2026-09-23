@@ -15,6 +15,7 @@ import {
   FolderTree,
   FileCheck,
   ArrowRight,
+  RefreshCw,
 } from 'lucide-react';
 import {
   analyzeCsvContent,
@@ -118,6 +119,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
   if (!isOpen) return null;
 
+  const [isApplying, setIsApplying] = useState(false);
+
   // Process list of incoming files (can be 1, 2, or 3 files)
   const handleIncomingFiles = async (files: FileList | File[]) => {
     setStatusMessage(null);
@@ -133,59 +136,108 @@ export const UploadModal: React.FC<UploadModalProps> = ({
       return;
     }
 
-    const updated = { ...stagedFiles };
-    const reports: string[] = [];
+    try {
+      const analyzedFiles = await Promise.all(
+        fileArray.map(async (file) => {
+          const text = await file.text();
+          const analysis = analyzeCsvContent(text, file.name);
+          return { file, text, analysis };
+        })
+      );
 
-    for (const file of fileArray) {
-      try {
-        const text = await file.text();
-        const analysis = analyzeCsvContent(text, file.name);
+      const updated = { ...stagedFiles };
 
-        let targetSlot: DatasetType = 'date';
-        if (analysis.type === 'folder') {
-          targetSlot = 'folder';
-        } else if (analysis.type === 'country') {
-          targetSlot = 'country';
-        } else if (analysis.type === 'date') {
-          targetSlot = 'date';
-        } else {
-          // Fallback guess based on empty slots
-          if (!updated.folder) targetSlot = 'folder';
-          else if (!updated.country) targetSlot = 'country';
-          else targetSlot = 'date';
-        }
+      if (analyzedFiles.length === 3) {
+        // Optimal bipartite matching of 3 files to 3 slots
+        const permutations: DatasetType[][] = [
+          ['folder', 'country', 'date'],
+          ['folder', 'date', 'country'],
+          ['country', 'folder', 'date'],
+          ['country', 'date', 'folder'],
+          ['date', 'folder', 'country'],
+          ['date', 'country', 'folder'],
+        ];
 
-        updated[targetSlot] = {
-          file,
-          content: text,
-          name: file.name,
-          size: file.size,
-          analysis,
+        const scoreSlot = (item: (typeof analyzedFiles)[0], slot: DatasetType) => {
+          if (item.analysis.type === slot) return 100;
+          const name = item.file.name.toLowerCase();
+          if (slot === 'folder' && (name.includes('folder') || name.includes('chuyen_muc'))) return 50;
+          if (slot === 'country' && (name.includes('country') || name.includes('market') || name.includes('quoc_gia')))
+            return 50;
+          if (
+            slot === 'date' &&
+            (name.includes('date') || name.includes('day') || name.includes('kpi') || name.includes('ngay'))
+          )
+            return 50;
+          return 0;
         };
 
-        reports.push(
-          `• ${file.name} ➔ Gán vào [${DATASET_CONFIG[targetSlot].title}] (${analysis.totalRows} dòng)`
-        );
-      } catch (err: any) {
+        let bestPerm = permutations[0];
+        let bestScore = -1;
+
+        for (const perm of permutations) {
+          const score =
+            scoreSlot(analyzedFiles[0], perm[0]) +
+            scoreSlot(analyzedFiles[1], perm[1]) +
+            scoreSlot(analyzedFiles[2], perm[2]);
+          if (score > bestScore) {
+            bestScore = score;
+            bestPerm = perm;
+          }
+        }
+
+        for (let i = 0; i < 3; i++) {
+          const slot = bestPerm[i];
+          const item = analyzedFiles[i];
+          updated[slot] = {
+            file: item.file,
+            content: item.text,
+            name: item.file.name,
+            size: item.file.size,
+            analysis: item.analysis,
+          };
+        }
+      } else {
+        for (const item of analyzedFiles) {
+          let targetSlot: DatasetType = 'date';
+          if (item.analysis.type === 'folder' && !updated.folder) targetSlot = 'folder';
+          else if (item.analysis.type === 'country' && !updated.country) targetSlot = 'country';
+          else if (item.analysis.type === 'date' && !updated.date) targetSlot = 'date';
+          else if (item.analysis.type !== 'unknown') targetSlot = item.analysis.type;
+          else {
+            if (!updated.folder) targetSlot = 'folder';
+            else if (!updated.country) targetSlot = 'country';
+            else targetSlot = 'date';
+          }
+
+          updated[targetSlot] = {
+            file: item.file,
+            content: item.text,
+            name: item.file.name,
+            size: item.file.size,
+            analysis: item.analysis,
+          };
+        }
+      }
+
+      setStagedFiles(updated);
+
+      const stagedCount = Object.values(updated).filter(Boolean).length;
+      if (stagedCount === 3) {
         setStatusMessage({
-          type: 'error',
-          text: `Lỗi đọc file ${file.name}: ${err.message || 'Không đọc được file'}`,
+          type: 'success',
+          text: `Đã nhận diện chuẩn xác 3/3 file CSV! Bấm "Cập nhật cả 3 file dữ liệu" bên dưới để áp dụng vào hệ thống.`,
+        });
+      } else {
+        setStatusMessage({
+          type: 'warning',
+          text: `Đã tiếp nhận ${fileArray.length} file .csv (${stagedCount}/3 tập dữ liệu sẵn sàng). Bạn có thể đẩy thêm file còn thiếu hoặc cập nhật ngay.`,
         });
       }
-    }
-
-    setStagedFiles(updated);
-
-    const stagedCount = Object.values(updated).filter(Boolean).length;
-    if (stagedCount === 3) {
+    } catch (err: any) {
       setStatusMessage({
-        type: 'success',
-        text: `Đã nhận diện đủ 3/3 file CSV! Bấm "Cập nhật cả 3 file dữ liệu" để đồng bộ lên Dashboard.`,
-      });
-    } else {
-      setStatusMessage({
-        type: 'warning',
-        text: `Đã tiếp nhận ${fileArray.length} file .csv (${stagedCount}/3 tập dữ liệu sẵn sàng). Bạn có thể đẩy thêm các file còn thiếu hoặc cập nhật ngay.`,
+        type: 'error',
+        text: `Lỗi xử lý file: ${err.message || 'Không đọc được file'}`,
       });
     }
   };
@@ -254,6 +306,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
   const handleApplyAll = () => {
     try {
+      setIsApplying(true);
       const { date, country, folder } = stagedFiles;
       const count = [date, country, folder].filter(Boolean).length;
 
@@ -262,10 +315,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           type: 'error',
           text: 'Chưa có file CSV nào được tải lên để cập nhật.',
         });
+        setIsApplying(false);
         return;
       }
 
-      updateAllDatasets({
+      const res = updateAllDatasets({
         dateCsv: date?.content,
         countryCsv: country?.content,
         folderCsv: folder?.content,
@@ -273,11 +327,17 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
       setStatusMessage({
         type: 'success',
-        text: `Cập nhật thành công ${count} tập dữ liệu CSV vào hệ thống! Toàn bộ chỉ số KPI, biểu đồ và bảng phân bổ đã được làm mới.`,
+        text: `Đã cập nhật thành công ${res.updatedCount} tập dữ liệu CSV vào hệ thống (${res.dateRows} ngày, ${res.countryRows} dòng thị trường, ${res.folderRows} dòng chuyên mục)! Đang đồng bộ Dashboard...`,
       });
 
       onDataUpdated();
+
+      setTimeout(() => {
+        setIsApplying(false);
+        onClose();
+      }, 900);
     } catch (err: any) {
+      setIsApplying(false);
       setStatusMessage({
         type: 'error',
         text: `Lỗi khi lưu dữ liệu: ${err.message || 'Dữ liệu CSV không hợp lệ'}`,
@@ -301,10 +361,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
       setStatusMessage({
         type: 'success',
-        text: `Đã cập nhật thành công dữ liệu ${DATASET_CONFIG[pasteTargetType].title} từ nội dung dán trực tiếp.`,
+        text: `Đã cập nhật thành công dữ liệu ${DATASET_CONFIG[pasteTargetType].title} từ nội dung dán trực tiếp. Đang đồng bộ Dashboard...`,
       });
       setPastedText('');
       onDataUpdated();
+      setTimeout(() => {
+        onClose();
+      }, 900);
     } catch (err: any) {
       setStatusMessage({
         type: 'error',
@@ -318,9 +381,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     setStagedFiles({ date: null, country: null, folder: null });
     setStatusMessage({
       type: 'success',
-      text: 'Đã khôi phục toàn bộ 3 tập dữ liệu gốc ban đầu của VnExpress OV (Tháng 1 - Tháng 9/2026).',
+      text: 'Đã khôi phục toàn bộ 3 tập dữ liệu gốc ban đầu của VnExpress OV (Tháng 1 - Tháng 9/2026). Đang tải lại Dashboard...',
     });
     onDataUpdated();
+    setTimeout(() => {
+      onClose();
+    }, 900);
   };
 
   const stagedCount = Object.values(stagedFiles).filter(Boolean).length;
@@ -759,23 +825,34 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             <button
               type="button"
               onClick={handleApplyAll}
-              disabled={stagedCount === 0}
+              disabled={stagedCount === 0 || isApplying}
               className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-bold text-white shadow-xs transition-all ${
-                stagedCount === 3
-                  ? 'bg-red-700 hover:bg-red-800 cursor-pointer'
+                isApplying
+                  ? 'bg-red-800 opacity-90 cursor-wait'
+                  : stagedCount === 3
+                  ? 'bg-red-700 hover:bg-red-800 cursor-pointer ring-2 ring-red-500/20'
                   : stagedCount > 0
                   ? 'bg-amber-600 hover:bg-amber-700 cursor-pointer'
                   : 'bg-slate-300 cursor-not-allowed'
               }`}
             >
-              <span>
-                {stagedCount === 3
-                  ? 'Xác nhận & Cập nhật cả 3 file dữ liệu'
-                  : stagedCount > 0
-                  ? `Cập nhật ${stagedCount} file đã sẵn sàng`
-                  : 'Chưa có file nào'}
-              </span>
-              <ArrowRight className="h-3.5 w-3.5" />
+              {isApplying ? (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  <span>Đang cập nhật lên Dashboard...</span>
+                </>
+              ) : (
+                <>
+                  <span>
+                    {stagedCount === 3
+                      ? 'Xác nhận & Cập nhật cả 3 file dữ liệu'
+                      : stagedCount > 0
+                      ? `Cập nhật ${stagedCount} file đã sẵn sàng`
+                      : 'Chưa có file nào'}
+                  </span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </>
+              )}
             </button>
           </div>
         </div>

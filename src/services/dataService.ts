@@ -25,22 +25,158 @@ import {
 } from '../types';
 
 /**
- * Clean and parse numeric values
+ * Case-insensitive, accent-insensitive, and BOM-safe column field accessor
+ */
+export function getFieldCaseInsensitive(row: Record<string, any>, possibleNames: string[]): any {
+  if (!row || typeof row !== 'object') return undefined;
+
+  // 1. Exact match
+  for (const name of possibleNames) {
+    if (row[name] !== undefined && row[name] !== null && String(row[name]).trim() !== '') {
+      return row[name];
+    }
+  }
+
+  // 2. Normalized key match (strip BOM, trim, lowercase, remove accents and spaces)
+  const normalize = (s: string) =>
+    s
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[_\s-]+/g, '');
+
+  const rowKeys = Object.keys(row);
+  const normalizedPossible = possibleNames.map(normalize);
+
+  for (const key of rowKeys) {
+    const normKey = normalize(key);
+    for (let i = 0; i < normalizedPossible.length; i++) {
+      if (normKey === normalizedPossible[i]) {
+        if (row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') {
+          return row[key];
+        }
+      }
+    }
+  }
+
+  // 3. Partial contains match
+  for (const key of rowKeys) {
+    const normKey = normalize(key);
+    for (let i = 0; i < normalizedPossible.length; i++) {
+      const target = normalizedPossible[i];
+      if (normKey.length >= 2 && (normKey.includes(target) || target.includes(normKey))) {
+        if (row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') {
+          return row[key];
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Parse and normalize date strings in ISO (YYYY-MM-DD) or VN/European (DD/MM/YYYY)
+ */
+export function normalizeDateString(raw: string): {
+  dayString: string;
+  year: number;
+  month: number;
+  timestamp: number;
+} {
+  if (!raw) {
+    return { dayString: '2026-09-01', year: 2026, month: 9, timestamp: Date.now() };
+  }
+  const clean = String(raw).trim().replace(/"/g, '');
+
+  // 1. ISO format: YYYY-MM-DD or YYYY/MM/DD
+  const isoMatch = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (isoMatch) {
+    const y = parseInt(isoMatch[1], 10);
+    const m = parseInt(isoMatch[2], 10);
+    const d = parseInt(isoMatch[3], 10);
+    const mStr = m < 10 ? `0${m}` : `${m}`;
+    const dStr = d < 10 ? `0${d}` : `${d}`;
+    const dayString = `${y}-${mStr}-${dStr}`;
+    return {
+      dayString,
+      year: y,
+      month: m,
+      timestamp: new Date(`${dayString}T00:00:00Z`).getTime(),
+    };
+  }
+
+  // 2. European / Vietnamese format: DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmyMatch) {
+    const d = parseInt(dmyMatch[1], 10);
+    const m = parseInt(dmyMatch[2], 10);
+    const y = parseInt(dmyMatch[3], 10);
+    const mStr = m < 10 ? `0${m}` : `${m}`;
+    const dStr = d < 10 ? `0${d}` : `${d}`;
+    const dayString = `${y}-${mStr}-${dStr}`;
+    return {
+      dayString,
+      year: y,
+      month: m,
+      timestamp: new Date(`${dayString}T00:00:00Z`).getTime(),
+    };
+  }
+
+  const fallbackDay = clean.slice(0, 10);
+  return {
+    dayString: fallbackDay,
+    year: 2026,
+    month: 9,
+    timestamp: Date.now(),
+  };
+}
+
+/**
+ * Clean and parse numeric values supporting US and Vietnamese formats
  */
 export function cleanNumber(val: string | number | undefined | null): number {
   if (val === undefined || val === null || val === '') return 0;
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
-  const cleaned = String(val).replace(/,/g, '').trim();
-  const num = Number(cleaned);
+  let str = String(val).trim().replace(/\s/g, '');
+  if (!str) return 0;
+
+  const hasComma = str.includes(',');
+  const hasDot = str.includes('.');
+
+  if (hasDot && hasComma) {
+    const lastDot = str.lastIndexOf('.');
+    const lastComma = str.lastIndexOf(',');
+    if (lastComma > lastDot) {
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      str = str.replace(/,/g, '');
+    }
+  } else if (hasDot && !hasComma) {
+    const dotCount = (str.match(/\./g) || []).length;
+    if (dotCount > 1) {
+      str = str.replace(/\./g, '');
+    }
+  } else if (hasComma && !hasDot) {
+    const commaCount = (str.match(/,/g) || []).length;
+    if (commaCount > 1) {
+      str = str.replace(/,/g, '');
+    } else {
+      str = str.replace(',', '.');
+    }
+  }
+
+  const num = Number(str);
   return isNaN(num) ? 0 : num;
 }
 
 export function cleanPercent(val: string | number | undefined | null): number {
   if (val === undefined || val === null || val === '') return 0;
-  if (typeof val === 'number') return val;
-  const cleaned = String(val).replace(/%/g, '').replace(/,/g, '').trim();
-  const num = Number(cleaned);
-  return isNaN(num) ? 0 : num;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const cleaned = String(val).replace(/%/g, '').trim();
+  return cleanNumber(cleaned);
 }
 
 /**
@@ -98,6 +234,32 @@ export function formatDateVi(dateStr: string | null | undefined): string {
 }
 
 /**
+ * Get the latest recorded date string dynamically
+ */
+export function getLatestDateString(): string {
+  const recorded = dateRecords.filter((d) => d.pageview !== null).sort((a, b) => a.timestamp - b.timestamp);
+  if (recorded.length > 0) {
+    return recorded[recorded.length - 1].dayString;
+  }
+  if (dateRecords.length > 0) {
+    const sorted = [...dateRecords].sort((a, b) => a.timestamp - b.timestamp);
+    return sorted[sorted.length - 1].dayString;
+  }
+  return '2026-09-03';
+}
+
+/**
+ * Get the earliest recorded date string dynamically
+ */
+export function getEarliestDateString(): string {
+  if (dateRecords.length > 0) {
+    const sorted = [...dateRecords].sort((a, b) => a.timestamp - b.timestamp);
+    return sorted[0].dayString;
+  }
+  return '2026-01-01';
+}
+
+/**
  * Extract active months from filter state
  */
 export function getActiveMonthsFromFilter(filter: FilterState): number[] | 'all' {
@@ -109,17 +271,14 @@ export function getActiveMonthsFromFilter(filter: FilterState): number[] | 'all'
     filter.dateRangePreset === 'yesterday' ||
     filter.dateRangePreset === 'this_month'
   ) {
-    return [9];
+    const latest = getLatestDateString();
+    const m = Number(latest.slice(5, 7)) || 9;
+    return [m];
   }
   if (filter.dateRangePreset === 'prev_month') {
-    return [8];
-  }
-  if (
-    filter.dateRangePreset === 'last7' ||
-    filter.dateRangePreset === 'last14' ||
-    filter.dateRangePreset === 'last30'
-  ) {
-    return [8, 9];
+    const latest = getLatestDateString();
+    const m = Number(latest.slice(5, 7)) || 9;
+    return [Math.max(1, m - 1)];
   }
   if (filter.dateRangePreset === 'q1') {
     return [1, 2, 3];
@@ -129,6 +288,11 @@ export function getActiveMonthsFromFilter(filter: FilterState): number[] | 'all'
   }
   if (filter.dateRangePreset === 'q3') {
     return [7, 8, 9];
+  }
+  if (filter.dateRangePreset === 'last7' || filter.dateRangePreset === 'last14' || filter.dateRangePreset === 'last30') {
+    const latest = getLatestDateString();
+    const m = Number(latest.slice(5, 7)) || 9;
+    return [m];
   }
   if (filter.dateRangePreset === 'custom' && filter.customStartDate && filter.customEndDate) {
     const startM = Number(filter.customStartDate.slice(5, 7)) || 1;
@@ -145,38 +309,67 @@ export function getActiveMonthsFromFilter(filter: FilterState): number[] | 'all'
 }
 
 /**
- * Extract date range bounds from filter state
+ * Extract date range bounds from filter state dynamically adapting to uploaded date data
  */
 export function getDateBoundsFromFilter(filter: FilterState): { startDate: string; endDate: string } {
+  const latestRecordedDate = getLatestDateString();
+  const earliestRecordedDate = getEarliestDateString();
+
   if (filter.timeMode === 'month') {
     if (filter.selectedMonth === 'all') {
-      return { startDate: '2026-01-01', endDate: '2026-09-03' };
+      return { startDate: earliestRecordedDate, endDate: latestRecordedDate };
     }
     const m = Number(filter.selectedMonth);
     const mStr = m < 10 ? `0${m}` : `${m}`;
-    const lastDay = m === 9 ? '03' : new Date(2026, m, 0).getDate();
-    return { startDate: `2026-${mStr}-01`, endDate: `2026-${mStr}-${lastDay}` };
+    
+    // Find max day recorded for this specific month in dateRecords
+    const daysInMonth = dateRecords.filter((d) => d.month === m);
+    let lastDayStr = '';
+    if (daysInMonth.length > 0) {
+      const sortedMonthDays = daysInMonth.sort((a, b) => a.timestamp - b.timestamp);
+      lastDayStr = sortedMonthDays[sortedMonthDays.length - 1].dayString.slice(8, 10);
+    } else {
+      const lastDayNum = new Date(2026, m, 0).getDate();
+      lastDayStr = lastDayNum < 10 ? `0${lastDayNum}` : `${lastDayNum}`;
+    }
+
+    return { startDate: `2026-${mStr}-01`, endDate: `2026-${mStr}-${lastDayStr}` };
   }
+
   if (filter.dateRangePreset === 'today') {
-    return { startDate: '2026-09-03', endDate: '2026-09-03' };
+    return { startDate: latestRecordedDate, endDate: latestRecordedDate };
   }
   if (filter.dateRangePreset === 'yesterday') {
-    return { startDate: '2026-09-02', endDate: '2026-09-02' };
+    const recorded = dateRecords.filter((d) => d.pageview !== null).sort((a, b) => a.timestamp - b.timestamp);
+    const prev = recorded.length >= 2 ? recorded[recorded.length - 2].dayString : latestRecordedDate;
+    return { startDate: prev, endDate: prev };
   }
   if (filter.dateRangePreset === 'this_month') {
-    return { startDate: '2026-09-01', endDate: '2026-09-03' };
+    const m = Number(latestRecordedDate.slice(5, 7)) || 9;
+    const mStr = m < 10 ? `0${m}` : `${m}`;
+    return { startDate: `2026-${mStr}-01`, endDate: latestRecordedDate };
   }
   if (filter.dateRangePreset === 'prev_month') {
-    return { startDate: '2026-08-01', endDate: '2026-08-31' };
+    const m = Number(latestRecordedDate.slice(5, 7)) || 9;
+    const prevM = Math.max(1, m - 1);
+    const prevMStr = prevM < 10 ? `0${prevM}` : `${prevM}`;
+    const lastDayNum = new Date(2026, prevM, 0).getDate();
+    return { startDate: `2026-${prevMStr}-01`, endDate: `2026-${prevMStr}-${lastDayNum}` };
   }
   if (filter.dateRangePreset === 'last7') {
-    return { startDate: '2026-08-28', endDate: '2026-09-03' };
+    const latestTs = new Date(`${latestRecordedDate}T00:00:00Z`).getTime();
+    const start7 = new Date(latestTs - 6 * 86400000).toISOString().slice(0, 10);
+    return { startDate: start7, endDate: latestRecordedDate };
   }
   if (filter.dateRangePreset === 'last14') {
-    return { startDate: '2026-08-21', endDate: '2026-09-03' };
+    const latestTs = new Date(`${latestRecordedDate}T00:00:00Z`).getTime();
+    const start14 = new Date(latestTs - 13 * 86400000).toISOString().slice(0, 10);
+    return { startDate: start14, endDate: latestRecordedDate };
   }
   if (filter.dateRangePreset === 'last30') {
-    return { startDate: '2026-08-05', endDate: '2026-09-03' };
+    const latestTs = new Date(`${latestRecordedDate}T00:00:00Z`).getTime();
+    const start30 = new Date(latestTs - 29 * 86400000).toISOString().slice(0, 10);
+    return { startDate: start30, endDate: latestRecordedDate };
   }
   if (filter.dateRangePreset === 'q1') {
     return { startDate: '2026-01-01', endDate: '2026-03-31' };
@@ -185,34 +378,95 @@ export function getDateBoundsFromFilter(filter: FilterState): { startDate: strin
     return { startDate: '2026-04-01', endDate: '2026-06-30' };
   }
   if (filter.dateRangePreset === 'q3') {
-    return { startDate: '2026-07-01', endDate: '2026-09-03' };
+    return { startDate: '2026-07-01', endDate: latestRecordedDate };
   }
   if (filter.dateRangePreset === 'custom' && filter.customStartDate && filter.customEndDate) {
     return { startDate: filter.customStartDate, endDate: filter.customEndDate };
   }
-  return { startDate: '2026-01-01', endDate: '2026-09-03' };
+
+  return { startDate: earliestRecordedDate, endDate: latestRecordedDate };
 }
 
 /**
- * Parse Raw Folder CSV
+ * Parse Raw Folder CSV with robust column aliases, UTF-8 BOM removal, and formatting tolerance
  */
 export function parseFolderCsv(csvContent: string): NormalizedFolderRecord[] {
-  const parsed = Papa.parse<RawFolderRecord>(csvContent.trim(), {
+  if (!csvContent || !csvContent.trim()) return [];
+
+  const parsed = Papa.parse<Record<string, any>>(csvContent.trim(), {
     header: true,
-    skipEmptyLines: true,
+    skipEmptyLines: 'greedy',
+    transformHeader: (header) => header.replace(/^\uFEFF/, '').trim(),
   });
 
   return parsed.data
-    .filter((row) => row.Folder && row.Folder.trim() !== '')
+    .filter((row) => {
+      const folderVal = getFieldCaseInsensitive(row, [
+        'Folder',
+        'folder',
+        'Chuyên mục',
+        'Chuyen muc',
+        'Category',
+        'category',
+        'Name',
+        'danh mục',
+      ]);
+      return folderVal !== undefined && String(folderVal).trim() !== '';
+    })
     .map((row, index) => {
-      const folder = String(row.Folder).trim();
-      const month = Number(cleanNumber(row['Month Number']));
-      const pvs = cleanNumber(row.PVS);
-      const pvsRunAds = cleanNumber(row['PVS run ads']);
+      const rawFolder = getFieldCaseInsensitive(row, [
+        'Folder',
+        'folder',
+        'Chuyên mục',
+        'Chuyen muc',
+        'Category',
+        'category',
+        'Name',
+      ]);
+      const folder = String(rawFolder).trim();
+
+      const rawMonth = getFieldCaseInsensitive(row, [
+        'Month Number',
+        'Month',
+        'month',
+        'Tháng',
+        'thang',
+        'month_number',
+      ]);
+      const month = Number(cleanNumber(rawMonth)) || 1;
+
+      const rawPvs = getFieldCaseInsensitive(row, [
+        'PVS',
+        'Pvs',
+        'pvs',
+        'Pageviews',
+        'pageviews',
+        'Pageview',
+        'pageview',
+        'PV',
+        'pv',
+        'Total PV',
+        'Lượt xem',
+      ]);
+      const pvs = cleanNumber(rawPvs);
+
+      const rawRunAds = getFieldCaseInsensitive(row, [
+        'PVS run ads',
+        'Pvs run ads',
+        'pvs run ads',
+        'pvs_run_ads',
+        'Run ads',
+        'run ads',
+        'Run Ads PV',
+      ]);
+      const pvsRunAds = cleanNumber(rawRunAds);
+
       const blockAds = Math.max(0, pvs - pvsRunAds);
       const blockRate = pvs > 0 ? (blockAds / pvs) * 100 : 0;
       const canRunAdsRate = pvs > 0 ? (pvsRunAds / pvs) * 100 : 0;
-      const kpiPercent = cleanPercent(row['%KPI']);
+
+      const rawKpi = getFieldCaseInsensitive(row, ['%KPI', '%kpi', 'KPI%', 'KPI', 'kpi']);
+      const kpiPercent = cleanPercent(rawKpi);
 
       return {
         id: `folder-${folder}-${month}-${index}`,
@@ -229,21 +483,80 @@ export function parseFolderCsv(csvContent: string): NormalizedFolderRecord[] {
 }
 
 /**
- * Parse Raw Country CSV
+ * Parse Raw Country CSV with robust column aliases, UTF-8 BOM removal, and formatting tolerance
  */
 export function parseCountryCsv(csvContent: string): NormalizedCountryRecord[] {
-  const parsed = Papa.parse<RawCountryRecord>(csvContent.trim(), {
+  if (!csvContent || !csvContent.trim()) return [];
+
+  const parsed = Papa.parse<Record<string, any>>(csvContent.trim(), {
     header: true,
-    skipEmptyLines: true,
+    skipEmptyLines: 'greedy',
+    transformHeader: (header) => header.replace(/^\uFEFF/, '').trim(),
   });
 
   return parsed.data
-    .filter((row) => row.Country && String(row.Country).trim() !== '')
+    .filter((row) => {
+      const countryVal = getFieldCaseInsensitive(row, [
+        'Country',
+        'country',
+        'Quốc gia',
+        'quoc gia',
+        'Market',
+        'market',
+        'Thị trường',
+        'thi truong',
+      ]);
+      return countryVal !== undefined && String(countryVal).trim() !== '';
+    })
     .map((row, index) => {
-      const country = String(row.Country).trim();
-      const month = Number(cleanNumber(row.month));
-      const pvs = cleanNumber(row.Pvs);
-      const pvsRunAds = cleanNumber(row['Pvs run ads']);
+      const rawCountry = getFieldCaseInsensitive(row, [
+        'Country',
+        'country',
+        'Quốc gia',
+        'quoc gia',
+        'Market',
+        'market',
+        'Thị trường',
+        'thi truong',
+      ]);
+      const country = String(rawCountry).trim();
+
+      const rawMonth = getFieldCaseInsensitive(row, [
+        'month',
+        'Month',
+        'Month Number',
+        'month number',
+        'Tháng',
+        'thang',
+      ]);
+      const month = Number(cleanNumber(rawMonth)) || 1;
+
+      const rawPvs = getFieldCaseInsensitive(row, [
+        'Pvs',
+        'PVS',
+        'pvs',
+        'Pageviews',
+        'pageviews',
+        'Pageview',
+        'pageview',
+        'PV',
+        'pv',
+        'Total PV',
+        'Lượt xem',
+      ]);
+      const pvs = cleanNumber(rawPvs);
+
+      const rawRunAds = getFieldCaseInsensitive(row, [
+        'Pvs run ads',
+        'PVS run ads',
+        'pvs run ads',
+        'pvs_run_ads',
+        'Run ads',
+        'run ads',
+        'Run Ads PV',
+      ]);
+      const pvsRunAds = cleanNumber(rawRunAds);
+
       const blockAds = Math.max(0, pvs - pvsRunAds);
       const blockRate = pvs > 0 ? (blockAds / pvs) * 100 : 0;
       const canRunAdsRate = pvs > 0 ? (pvsRunAds / pvs) * 100 : 0;
@@ -262,37 +575,78 @@ export function parseCountryCsv(csvContent: string): NormalizedCountryRecord[] {
 }
 
 /**
- * Parse Raw Date CSV
+ * Parse Raw Date CSV with robust column aliases, UTF-8 BOM removal, and multi-format date normalization
  */
 export function parseDateCsv(csvContent: string): NormalizedDateRecord[] {
-  const parsed = Papa.parse<RawDateRecord>(csvContent.trim(), {
+  if (!csvContent || !csvContent.trim()) return [];
+
+  const parsed = Papa.parse<Record<string, any>>(csvContent.trim(), {
     header: true,
-    skipEmptyLines: true,
+    skipEmptyLines: 'greedy',
+    transformHeader: (header) => header.replace(/^\uFEFF/, '').trim(),
   });
 
   return parsed.data
-    .filter((row) => row.Day && row.Day.trim() !== '')
+    .filter((row) => {
+      const dayVal = getFieldCaseInsensitive(row, [
+        'Day',
+        'day',
+        'Date',
+        'date',
+        'Ngày',
+        'ngay',
+        'Timestamp',
+        'timestamp',
+      ]);
+      return dayVal !== undefined && String(dayVal).trim() !== '';
+    })
     .map((row, index) => {
-      const rawDay = String(row.Day).trim();
-      const dayString = rawDay.slice(0, 10); // "YYYY-MM-DD"
-      const dateParts = dayString.split('-');
-      const year = Number(dateParts[0]) || 2026;
-      const month = Number(dateParts[1]) || 1;
-      const timestamp = new Date(`${dayString}T00:00:00Z`).getTime();
+      const rawDay = String(
+        getFieldCaseInsensitive(row, [
+          'Day',
+          'day',
+          'Date',
+          'date',
+          'Ngày',
+          'ngay',
+          'Timestamp',
+          'timestamp',
+        ])
+      ).trim();
+      const dateInfo = normalizeDateString(rawDay);
 
-      const kpiTarget = cleanNumber(row.KPI);
-      const rawPageview = row.Pageview;
+      const rawKpi = getFieldCaseInsensitive(row, [
+        'KPI',
+        'kpi',
+        'Target',
+        'target',
+        'Mục tiêu',
+        'muc tieu',
+      ]);
+      const kpiTarget = cleanNumber(rawKpi);
+
+      const rawPageview = getFieldCaseInsensitive(row, [
+        'Pageview',
+        'pageview',
+        'Pageviews',
+        'pageviews',
+        'PV',
+        'pv',
+        'Pvs',
+        'PVS',
+        'Lượt xem',
+      ]);
       const pageview =
         rawPageview !== undefined && rawPageview !== null && String(rawPageview).trim() !== ''
           ? cleanNumber(rawPageview)
           : null;
 
       return {
-        id: `date-${dayString}-${index}`,
-        dayString,
-        timestamp,
-        month,
-        year,
+        id: `date-${dateInfo.dayString}-${index}`,
+        dayString: dateInfo.dayString,
+        timestamp: dateInfo.timestamp,
+        month: dateInfo.month,
+        year: dateInfo.year,
         kpiTarget,
         pageview,
       };
@@ -300,13 +654,46 @@ export function parseDateCsv(csvContent: string): NormalizedDateRecord[] {
 }
 
 /**
- * In-memory state holding the parsed records
+ * In-memory state holding the parsed records with localStorage persistence fallback
  */
-let folderRecords = parseFolderCsv(RAW_FOLDER_CSV);
-let countryRecords = parseCountryCsv(RAW_COUNTRY_CSV);
-let dateRecords = parseDateCsv(RAW_DATE_CSV);
-let lastRefreshTime = new Date('2026-09-21T19:38:00');
-let dataSourceInfo = 'Dữ liệu gốc nội bộ VnExpress OV (Tháng 1 - Tháng 9/2026)';
+function getInitialFolderRecords(): NormalizedFolderRecord[] {
+  try {
+    const saved = localStorage.getItem('vnexpress_uploaded_folder_csv');
+    if (saved) {
+      const parsed = parseFolderCsv(saved);
+      if (parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return parseFolderCsv(RAW_FOLDER_CSV);
+}
+
+function getInitialCountryRecords(): NormalizedCountryRecord[] {
+  try {
+    const saved = localStorage.getItem('vnexpress_uploaded_country_csv');
+    if (saved) {
+      const parsed = parseCountryCsv(saved);
+      if (parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return parseCountryCsv(RAW_COUNTRY_CSV);
+}
+
+function getInitialDateRecords(): NormalizedDateRecord[] {
+  try {
+    const saved = localStorage.getItem('vnexpress_uploaded_date_csv');
+    if (saved) {
+      const parsed = parseDateCsv(saved);
+      if (parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return parseDateCsv(RAW_DATE_CSV);
+}
+
+let folderRecords = getInitialFolderRecords();
+let countryRecords = getInitialCountryRecords();
+let dateRecords = getInitialDateRecords();
+let lastRefreshTime = new Date();
+let dataSourceInfo = 'Dữ liệu nội bộ VnExpress OV (Tháng 1 - Tháng 9/2026)';
 
 export function getDatasets() {
   return {
@@ -342,129 +729,99 @@ export function analyzeCsvContent(csvContent: string, fileName?: string): Detect
 
   const parsed = Papa.parse<Record<string, string>>(trimmed, {
     header: true,
-    preview: 5,
-    skipEmptyLines: true,
+    preview: 10,
+    skipEmptyLines: 'greedy',
+    transformHeader: (h) => h.replace(/^\uFEFF/, '').trim(),
   });
 
   const fields = (parsed.meta.fields || []).map((f) => f.trim());
-  const lowerFields = fields.map((f) => f.toLowerCase());
+  const lowerFields = fields.map((f) => f.toLowerCase().replace(/^\uFEFF/, ''));
   const lowerName = (fileName || '').toLowerCase();
 
   // Count rows approximately
   const lines = trimmed.split(/\r?\n/).filter((l) => l.trim().length > 0);
   const totalRows = Math.max(0, lines.length - 1);
 
-  const hasFolderCol = lowerFields.some(
-    (f) => f.includes('folder') || f.includes('chuyên mục') || f.includes('chuyen muc')
-  );
-  const hasCountryCol = lowerFields.some(
-    (f) =>
-      f.includes('country') ||
-      f.includes('quốc gia') ||
-      f.includes('thị trường') ||
-      f.includes('market')
-  );
-  const hasDayCol = lowerFields.some(
-    (f) => f === 'day' || f === 'date' || f.includes('ngày') || f.includes('daily')
-  );
-  const hasPvsRunAds = lowerFields.some(
-    (f) => f.includes('run ads') || f.includes('runads') || f.includes('pvs_run_ads')
-  );
-  const hasPageviewCol = lowerFields.some(
-    (f) => f.includes('pageview') || f.includes('pv')
-  );
-  const hasKpiCol = lowerFields.some((f) => f.includes('kpi'));
+  // Field flags
+  const hasFolder = lowerFields.some((f) => f.includes('folder') || f.includes('chuyên mục') || f.includes('chuyen muc') || f.includes('category'));
+  const hasCountry = lowerFields.some((f) => f.includes('country') || f.includes('quốc gia') || f.includes('quoc gia') || f.includes('market') || f.includes('thị trường'));
+  const hasDay = lowerFields.some((f) => f === 'day' || f === 'date' || f.includes('ngày') || f.includes('timestamp'));
+  const hasPvsRunAds = lowerFields.some((f) => f.includes('run ads') || f.includes('runads') || f.includes('pvs_run_ads'));
+  const hasKpi = lowerFields.some((f) => f.includes('kpi') || f.includes('target') || f.includes('mục tiêu'));
+  const hasMonth = lowerFields.some((f) => f.includes('month') || f.includes('tháng'));
 
-  // Priority 1: Folder
-  if (
-    hasFolderCol ||
-    (!hasCountryCol && !hasDayCol && (lowerName.includes('folder') || lowerName.includes('chuyen_muc')))
-  ) {
-    const missing: string[] = [];
-    if (!hasFolderCol) missing.push('Folder');
-    if (!lowerFields.some((f) => f.includes('month') || f.includes('tháng'))) missing.push('Month Number');
-    if (!lowerFields.some((f) => f === 'pvs' || f.includes('pvs'))) missing.push('PVS');
-    if (!hasPvsRunAds) missing.push('PVS run ads');
+  // Calculate scores
+  let folderScore = 0;
+  if (hasFolder) folderScore += 60;
+  if (hasPvsRunAds) folderScore += 20;
+  if (hasMonth) folderScore += 15;
+  if (lowerName.includes('folder') || lowerName.includes('chuyen_muc') || lowerName.includes('chuyen muc')) folderScore += 40;
 
-    return {
-      type: 'folder',
-      confidence: hasFolderCol && hasPvsRunAds ? 1 : 0.8,
-      detectedFields: fields,
-      missingRequiredFields: missing,
-      totalRows,
-      previewRows: parsed.data,
-    };
-  }
+  let countryScore = 0;
+  if (hasCountry) countryScore += 60;
+  if (hasPvsRunAds) countryScore += 20;
+  if (hasMonth) countryScore += 15;
+  if (lowerName.includes('country') || lowerName.includes('market') || lowerName.includes('quoc_gia') || lowerName.includes('thi_truong')) countryScore += 40;
 
-  // Priority 2: Country
-  if (
-    hasCountryCol ||
-    (!hasDayCol && (lowerName.includes('country') || lowerName.includes('market') || lowerName.includes('quoc_gia')))
-  ) {
-    const missing: string[] = [];
-    if (!hasCountryCol) missing.push('Country');
-    if (!lowerFields.some((f) => f.includes('month') || f.includes('tháng'))) missing.push('month');
-    if (!lowerFields.some((f) => f === 'pvs' || f.includes('pvs'))) missing.push('Pvs');
-    if (!hasPvsRunAds) missing.push('Pvs run ads');
+  let dateScore = 0;
+  if (hasDay) dateScore += 60;
+  if (hasKpi) dateScore += 25;
+  if (lowerFields.some((f) => f.includes('pageview') || f === 'pv' || f === 'pvs')) dateScore += 20;
+  if (lowerName.includes('date') || lowerName.includes('day') || lowerName.includes('daily') || lowerName.includes('ngay')) dateScore += 40;
 
-    return {
-      type: 'country',
-      confidence: hasCountryCol && hasPvsRunAds ? 1 : 0.8,
-      detectedFields: fields,
-      missingRequiredFields: missing,
-      totalRows,
-      previewRows: parsed.data,
-    };
-  }
+  let type: 'date' | 'country' | 'folder' | 'unknown' = 'unknown';
+  const maxScore = Math.max(folderScore, countryScore, dateScore);
 
-  // Priority 3: Date
-  if (
-    hasDayCol ||
-    lowerName.includes('date') ||
-    lowerName.includes('day') ||
-    (hasKpiCol && hasPageviewCol)
-  ) {
-    const missing: string[] = [];
-    if (!hasDayCol) missing.push('Day');
-    if (!hasKpiCol) missing.push('KPI');
-    if (!hasPageviewCol) missing.push('Pageview');
-
-    return {
-      type: 'date',
-      confidence: hasDayCol && (hasKpiCol || hasPageviewCol) ? 1 : 0.8,
-      detectedFields: fields,
-      missingRequiredFields: missing,
-      totalRows,
-      previewRows: parsed.data,
-    };
+  if (maxScore >= 30) {
+    if (folderScore === maxScore) type = 'folder';
+    else if (countryScore === maxScore) type = 'country';
+    else type = 'date';
   }
 
   return {
-    type: 'unknown',
-    confidence: 0,
+    type,
+    confidence: maxScore >= 60 ? 1 : 0.75,
     detectedFields: fields,
-    missingRequiredFields: ['Không nhận diện được định dạng phù hợp'],
+    missingRequiredFields: [],
     totalRows,
-    previewRows: parsed.data,
+    previewRows: parsed.data.slice(0, 5),
   };
 }
 
 export function updateFolderDataset(csv: string) {
-  folderRecords = parseFolderCsv(csv);
-  lastRefreshTime = new Date();
-  dataSourceInfo = 'Dữ liệu chuyên mục cập nhật từ file CSV tải lên';
+  const parsed = parseFolderCsv(csv);
+  if (parsed.length > 0) {
+    folderRecords = parsed;
+    try {
+      localStorage.setItem('vnexpress_uploaded_folder_csv', csv);
+    } catch {}
+    lastRefreshTime = new Date();
+    dataSourceInfo = `Dữ liệu chuyên mục cập nhật từ file CSV tải lên (${parsed.length} dòng)`;
+  }
 }
 
 export function updateCountryDataset(csv: string) {
-  countryRecords = parseCountryCsv(csv);
-  lastRefreshTime = new Date();
-  dataSourceInfo = 'Dữ liệu thị trường cập nhật từ file CSV tải lên';
+  const parsed = parseCountryCsv(csv);
+  if (parsed.length > 0) {
+    countryRecords = parsed;
+    try {
+      localStorage.setItem('vnexpress_uploaded_country_csv', csv);
+    } catch {}
+    lastRefreshTime = new Date();
+    dataSourceInfo = `Dữ liệu thị trường cập nhật từ file CSV tải lên (${parsed.length} dòng)`;
+  }
 }
 
 export function updateDateDataset(csv: string) {
-  dateRecords = parseDateCsv(csv);
-  lastRefreshTime = new Date();
-  dataSourceInfo = 'Dữ liệu ngày cập nhật từ file CSV tải lên';
+  const parsed = parseDateCsv(csv);
+  if (parsed.length > 0) {
+    dateRecords = parsed;
+    try {
+      localStorage.setItem('vnexpress_uploaded_date_csv', csv);
+    } catch {}
+    lastRefreshTime = new Date();
+    dataSourceInfo = `Dữ liệu ngày cập nhật từ file CSV tải lên (${parsed.length} ngày)`;
+  }
 }
 
 export function updateAllDatasets(datasets: {
@@ -473,23 +830,65 @@ export function updateAllDatasets(datasets: {
   dateCsv?: string;
 }) {
   let updatedCount = 0;
+  let folderRows = folderRecords.length;
+  let countryRows = countryRecords.length;
+  let dateRows = dateRecords.length;
+
   if (datasets.folderCsv && datasets.folderCsv.trim()) {
-    folderRecords = parseFolderCsv(datasets.folderCsv);
-    updatedCount++;
+    const parsed = parseFolderCsv(datasets.folderCsv);
+    if (parsed.length > 0) {
+      folderRecords = parsed;
+      folderRows = parsed.length;
+      updatedCount++;
+      try {
+        localStorage.setItem('vnexpress_uploaded_folder_csv', datasets.folderCsv);
+      } catch {}
+    }
   }
+
   if (datasets.countryCsv && datasets.countryCsv.trim()) {
-    countryRecords = parseCountryCsv(datasets.countryCsv);
-    updatedCount++;
+    const parsed = parseCountryCsv(datasets.countryCsv);
+    if (parsed.length > 0) {
+      countryRecords = parsed;
+      countryRows = parsed.length;
+      updatedCount++;
+      try {
+        localStorage.setItem('vnexpress_uploaded_country_csv', datasets.countryCsv);
+      } catch {}
+    }
   }
+
   if (datasets.dateCsv && datasets.dateCsv.trim()) {
-    dateRecords = parseDateCsv(datasets.dateCsv);
-    updatedCount++;
+    const parsed = parseDateCsv(datasets.dateCsv);
+    if (parsed.length > 0) {
+      dateRecords = parsed;
+      dateRows = parsed.length;
+      updatedCount++;
+      try {
+        localStorage.setItem('vnexpress_uploaded_date_csv', datasets.dateCsv);
+      } catch {}
+    }
   }
+
   lastRefreshTime = new Date();
-  dataSourceInfo = `Dữ liệu cập nhật từ ${updatedCount} file CSV tải lên đồng thời`;
+  dataSourceInfo = `Dữ liệu cập nhật từ ${updatedCount} file CSV mới (${folderRows} dòng Chuyên mục, ${countryRows} dòng Thị trường, ${dateRows} ngày KPI)`;
+
+  return {
+    updatedCount,
+    folderRows,
+    countryRows,
+    dateRows,
+    success: updatedCount > 0,
+  };
 }
 
 export function resetToDefaultDatasets() {
+  try {
+    localStorage.removeItem('vnexpress_uploaded_folder_csv');
+    localStorage.removeItem('vnexpress_uploaded_country_csv');
+    localStorage.removeItem('vnexpress_uploaded_date_csv');
+  } catch {}
+
   folderRecords = parseFolderCsv(RAW_FOLDER_CSV);
   countryRecords = parseCountryCsv(RAW_COUNTRY_CSV);
   dateRecords = parseDateCsv(RAW_DATE_CSV);
@@ -805,7 +1204,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
   let activeMonths: number[] = [];
   const extractedMonths = getActiveMonthsFromFilter(filter);
   if (extractedMonths === 'all') {
-    activeMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    activeMonths = getAvailableMonths();
   } else if (Array.isArray(extractedMonths)) {
     activeMonths = extractedMonths;
   } else {
@@ -998,7 +1397,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
         kpiTarget,
         kpiAttainment,
         kpiGap,
-        comparisonTitle: 'So với hôm trước (DoD: 02/09/2026)',
+        comparisonTitle: prevDay ? `So với hôm trước (DoD: ${formatDateVi(prevDay.dayString)})` : 'So với hôm trước',
         totalPvChange,
         totalPvChangePct,
         canRunAdsChange,
@@ -1007,7 +1406,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
         blockAdsChangePct,
         blockRateChangePp,
         kpiAttainmentChangePp: 0,
-        grainNotice: 'Số liệu ngày 03/09/2026 (Ngày mới nhất có dữ liệu thực tế).',
+        grainNotice: `Số liệu ngày ${formatDateVi(latestDay.dayString)} (Ngày mới nhất có dữ liệu thực tế).`,
       }, filter, 1);
     }
 
@@ -1041,7 +1440,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
         kpiTarget,
         kpiAttainment,
         kpiGap,
-        comparisonTitle: 'So với ngày trước đó (01/09/2026)',
+        comparisonTitle: prevPrevDay ? `So với ngày trước đó (${formatDateVi(prevPrevDay.dayString)})` : 'So với ngày trước đó',
         totalPvChange: totalPageviews - prevPv,
         totalPvChangePct: prevPv > 0 ? ((totalPageviews - prevPv) / prevPv) * 100 : 0,
         canRunAdsChange: canRunAdsPv - prevCanRunAds,
@@ -1050,7 +1449,7 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
         blockAdsChangePct: prevBlockAds > 0 ? ((blockAdsPv - prevBlockAds) / prevBlockAds) * 100 : 0,
         blockRateChangePp: blockRate - prevBlockRate,
         kpiAttainmentChangePp: 0,
-        grainNotice: 'Số liệu ngày 02/09/2026 (Hôm qua).',
+        grainNotice: `Số liệu ngày ${formatDateVi(prevDay.dayString)} (Hôm qua).`,
       }, filter, 1);
     }
 
