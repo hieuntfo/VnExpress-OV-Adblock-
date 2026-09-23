@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   FileText,
   Copy,
@@ -14,7 +14,7 @@ import {
   Calculator,
 } from 'lucide-react';
 import { ExecutiveKpiSummary, ActiveAlert, SampleAllocationRow } from '../types';
-import { formatNumber, formatCompactNumber } from '../services/dataService';
+import { formatNumber, formatCompactNumber, calculateMarketPerformance, COUNTRY_KPI_SPECS } from '../services/dataService';
 import { MetricKey } from './MetricFormulaModal';
 
 interface ExecutiveBriefingProps {
@@ -23,6 +23,8 @@ interface ExecutiveBriefingProps {
   alerts: ActiveAlert[];
   sampleAllocationRows: SampleAllocationRow[];
   selectedMonth: number | 'all';
+  activeMarket?: string;
+  onSelectMarket?: (market: string) => void;
   onOpenFormula?: (metric: MetricKey) => void;
 }
 
@@ -32,6 +34,8 @@ export const ExecutiveBriefing: React.FC<ExecutiveBriefingProps> = ({
   alerts,
   sampleAllocationRows,
   selectedMonth,
+  activeMarket,
+  onSelectMarket,
   onOpenFormula,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -47,11 +51,23 @@ export const ExecutiveBriefing: React.FC<ExecutiveBriefingProps> = ({
   const currentBlockRate = summary.blockRate.toFixed(2);
   // 5. Thị trường đóng góp block nhiều nhất:
   const topBlockMarket = sampleAllocationRows[0];
-  // 6. Phân bổ mẫu có đúng kế hoạch:
-  const deviatingSamples = sampleAllocationRows.filter(
-    (s) => s.status !== 'On Target' && s.status !== 'Not Configured'
-  );
-  const isSampleOnPlan = deviatingSamples.length === 0;
+
+  // 6. Tiến độ Thí điểm Úc & Nhật (Pilot Phase 1)
+  const marketRows = useMemo(() => {
+    return calculateMarketPerformance(selectedMonth);
+  }, [selectedMonth]);
+
+  const auRow = marketRows.find((r) => r.country.toLowerCase() === 'australia');
+  const jpRow = marketRows.find((r) => r.country.toLowerCase() === 'japan');
+
+  const auSpec = COUNTRY_KPI_SPECS['Australia'];
+  const jpSpec = COUNTRY_KPI_SPECS['Japan'];
+
+  const auBlockRate = auRow ? auRow.blockRate : auSpec?.blockRateBaseline || 15.26;
+  const jpBlockRate = jpRow ? jpRow.blockRate : jpSpec?.blockRateBaseline || 16.06;
+
+  const isAuTargetMet = auBlockRate <= (auSpec?.targetBlockRate10 || 13.74);
+  const isJpTargetMet = jpBlockRate <= (jpSpec?.targetBlockRate10 || 14.45);
 
   // Build full briefing text for clipboard
   const generateClipboardText = () => {
@@ -73,8 +89,8 @@ Thời gian đối chiếu: ${selectedMonth === 'all' ? 'Toàn kỳ (T1-T9/2026)
 5. THỊ TRƯỜNG NÀO ĐÓNG GÓP BLOCK NHIỀU NHẤT?
 -> ${topBlockMarket?.market || 'United States'} (chiếm tỷ trọng lượng truy cập và block áp đảo tại thị trường hải ngoại).
 
-6. PHÂN BỔ MẪU ĐÚNG KẾ HOẠCH HAY KHÔNG?
--> ${isSampleOnPlan ? 'ĐÚNG KẾ HOẠCH' : `CÓ ${deviatingSamples.length} THỊ TRƯỜNG LỆCH MẪU`}.
+6. TIẾN ĐỘ THÍ ĐIỂM (ÚC & NHẬT BẢN):
+-> Úc: Block Rate ${auBlockRate.toFixed(2)}% (Mốc chuẩn: ${auSpec?.blockRateBaseline || 15.26}%, Mục tiêu: ${auSpec?.targetBlockRate10 || 13.74}%) | Nhật Bản: Block Rate ${jpBlockRate.toFixed(2)}% (Mốc chuẩn: ${jpSpec?.blockRateBaseline || 16.06}%, Mục tiêu: ${jpSpec?.targetBlockRate10 || 14.45}%).
 
 --- CÁC KẾT LUẬN CHI TIẾT ---
 ${insights.map((ins, i) => `${i + 1}. ${ins}`).join('\n')}
@@ -294,26 +310,100 @@ ${insights.map((ins, i) => `${i + 1}. ${ins}`).join('\n')}
           </div>
         </div>
 
-        {/* Q6: Phân bổ mẫu có đúng kế hoạch? */}
+        {/* Q6: Tiến độ Thí điểm Úc & Nhật (Pilot Phase 1) */}
         <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
-          <div className="text-xs text-slate-500 font-semibold mb-1">
-            6. Phân bổ mẫu có đúng kế hoạch không?
+          <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1">
+            <span>6. Tiến độ thí điểm (Úc &amp; Nhật)?</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+              Pilot Phase 1
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            {isSampleOnPlan ? (
-              <span className="inline-flex items-center gap-1 text-sm font-black text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded">
-                <CheckCircle2 className="h-4 w-4" /> ĐÚNG KẾ HOẠCH
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-sm font-black text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded">
-                <AlertTriangle className="h-4 w-4" /> LỆCH TẠI {deviatingSamples.length} NƯỚC
-              </span>
-            )}
+
+          <div className="grid grid-cols-2 gap-2 my-1">
+            {/* Úc Card */}
+            <button
+              type="button"
+              onClick={() =>
+                onSelectMarket &&
+                onSelectMarket(activeMarket?.toLowerCase() === 'australia' ? 'all' : 'Australia')
+              }
+              className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                activeMarket?.toLowerCase() === 'australia'
+                  ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-300 shadow-xs'
+                  : 'bg-white hover:bg-blue-50/70 border-slate-200 shadow-2xs'
+              }`}
+              title="Bấm để lọc chi tiết thị trường Úc"
+            >
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="font-bold text-slate-800 flex items-center gap-1">
+                  <span>🇦🇺</span> Úc
+                </span>
+                <span
+                  className={`text-[9px] font-bold px-1 py-0.5 rounded ${
+                    isAuTargetMet
+                      ? 'text-emerald-800 bg-emerald-100'
+                      : auBlockRate <= (auSpec?.blockRateBaseline || 15.26)
+                      ? 'text-blue-800 bg-blue-100'
+                      : 'text-amber-800 bg-amber-100'
+                  }`}
+                >
+                  {isAuTargetMet ? '✓ Đạt MT' : auBlockRate <= (auSpec?.blockRateBaseline || 15.26) ? 'Giảm tốt' : 'Theo dõi'}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-black text-slate-900">
+                  {auBlockRate.toFixed(2)}%
+                </span>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  MT: {auSpec?.targetBlockRate10 || 13.74}%
+                </span>
+              </div>
+            </button>
+
+            {/* Nhật Bản Card */}
+            <button
+              type="button"
+              onClick={() =>
+                onSelectMarket &&
+                onSelectMarket(activeMarket?.toLowerCase() === 'japan' ? 'all' : 'Japan')
+              }
+              className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                activeMarket?.toLowerCase() === 'japan'
+                  ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-300 shadow-xs'
+                  : 'bg-white hover:bg-rose-50/70 border-slate-200 shadow-2xs'
+              }`}
+              title="Bấm để lọc chi tiết thị trường Nhật Bản"
+            >
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="font-bold text-slate-800 flex items-center gap-1">
+                  <span>🇯🇵</span> Nhật
+                </span>
+                <span
+                  className={`text-[9px] font-bold px-1 py-0.5 rounded ${
+                    isJpTargetMet
+                      ? 'text-emerald-800 bg-emerald-100'
+                      : jpBlockRate <= (jpSpec?.blockRateBaseline || 16.06)
+                      ? 'text-blue-800 bg-blue-100'
+                      : 'text-amber-800 bg-amber-100'
+                  }`}
+                >
+                  {isJpTargetMet ? '✓ Đạt MT' : jpBlockRate <= (jpSpec?.blockRateBaseline || 16.06) ? 'Giảm tốt' : 'Theo dõi'}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-black text-slate-900">
+                  {jpBlockRate.toFixed(2)}%
+                </span>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  MT: {jpSpec?.targetBlockRate10 || 14.45}%
+                </span>
+              </div>
+            </button>
           </div>
-          <div className="text-[11px] text-slate-600 mt-1">
-            {isSampleOnPlan
-              ? 'Tất cả thị trường cấu hình đều nằm trong biên độ mục tiêu (±2 pp).'
-              : 'Cần điều chỉnh tỷ trọng kiểm thử theo khuyến nghị hệ thống.'}
+
+          <div className="text-[11px] text-slate-600 mt-0.5 flex items-center justify-between">
+            <span>Mục tiêu giảm Block Rate 10% – 15%.</span>
+            <span className="text-[10px] text-slate-400 font-semibold italic">* Bấm để lọc nhanh</span>
           </div>
         </div>
       </div>

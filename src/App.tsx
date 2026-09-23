@@ -408,7 +408,7 @@ export default function App() {
               }`}
             >
               <Globe2 className="h-3.5 w-3.5" />
-              <span>Thị trường & Phân bổ mẫu</span>
+              <span>Thị trường & Thí điểm OV</span>
             </button>
 
             <button
@@ -444,6 +444,8 @@ export default function App() {
               alerts={alerts}
               sampleAllocationRows={sampleAllocationRows}
               selectedMonth={selectedMonthForProps}
+              activeMarket={filters.market}
+              onSelectMarket={(m) => setFilters((prev) => ({ ...prev, market: m }))}
               onOpenFormula={(metric) => setFormulaModalMetric(metric)}
             />
           </section>

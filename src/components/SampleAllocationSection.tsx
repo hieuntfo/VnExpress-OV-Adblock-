@@ -7,6 +7,8 @@ import {
   RotateCcw,
   Sparkles,
   Info,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { SampleAllocationRow } from '../types';
 import { formatNumber, formatCompactNumber } from '../services/dataService';
@@ -30,6 +32,7 @@ export const SampleAllocationSection: React.FC<SampleAllocationSectionProps> = (
 }) => {
   const [editingAllocations, setEditingAllocations] = useState<Record<string, string>>({});
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Top markets (display top 15 for concise management)
   const topRows = rows.slice(0, 15);
@@ -124,13 +127,26 @@ export const SampleAllocationSection: React.FC<SampleAllocationSectionProps> = (
           <button
             type="button"
             onClick={onResetAllocations}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer"
             title="Đặt lại cài đặt mẫu mặc định"
           >
             <RotateCcw className="h-3.5 w-3.5" />
           </button>
+
+          <button
+            type="button"
+            onClick={() => setIsCollapsed((prev) => !prev)}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium cursor-pointer ml-1"
+            title={isCollapsed ? 'Mở rộng bảng tỷ trọng mẫu' : 'Thu gọn bảng tỷ trọng mẫu'}
+          >
+            {isCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+            <span>{isCollapsed ? 'Mở rộng bảng' : 'Thu gọn'}</span>
+          </button>
         </div>
       </div>
+
+      {!isCollapsed && (
+        <>
 
       {/* Header Bar & Methodology Info (i) */}
       <div className="border-b border-slate-200 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -262,6 +278,8 @@ export const SampleAllocationSection: React.FC<SampleAllocationSectionProps> = (
             </tbody>
           </table>
         </div>
-    </div>
+      </>
+    )}
+  </div>
   );
 };
