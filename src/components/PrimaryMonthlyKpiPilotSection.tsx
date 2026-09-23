@@ -56,14 +56,14 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
               Thông tin Điều hành Chính
             </span>
             <span className="text-sm font-bold text-slate-900">
-              1/ KPI Theo Tháng Baseline &amp; 2/ KPI Thí Điểm Nhật Bản
+              1. Tỷ lệ chặn chung toàn hệ thống &amp; 2. Kết quả thí điểm Nhật Bản
             </span>
             <span className="text-xs px-2 py-0.5 rounded-md font-semibold bg-amber-100 text-amber-900 border border-amber-300">
               Đang xem: {activeBaseline.monthLabel}
             </span>
           </div>
           <p className="text-xs text-slate-600">
-            Giám sát trực diện hai trục cốt lõi theo chỉ đạo điều hành: Mốc chuẩn toàn bộ thị trường OV (Baseline) và Tiến độ kiểm thử tại Nhật Bản (Tăng hay Giảm theo từng tháng).
+            Theo dõi 2 trọng tâm: Tỷ lệ chặn chung toàn hệ thống hải ngoại và kết quả thí điểm gỡ chặn tại Nhật Bản (tăng hay giảm theo từng tháng).
           </p>
         </div>
 
@@ -106,7 +106,7 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
             type="button"
             onClick={() => setShowDetailedTable((prev) => !prev)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
-            title="Bật/tắt bảng đối chiếu 9 tháng giữa Baseline và Nhật Bản"
+            title="Bật/tắt bảng đối chiếu 9 tháng giữa toàn hệ thống và Nhật Bản"
           >
             {showDetailedTable ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             <span>{showDetailedTable ? 'Ẩn bảng 9 tháng' : 'Bảng đối chiếu 9 tháng'}</span>
@@ -120,7 +120,7 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
               title="Xem đặc tả kỹ thuật và tiêu chuẩn KPI"
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Chuẩn KPI Tech</span>
+              <span className="hidden sm:inline">Tiêu chuẩn kỹ thuật</span>
             </button>
           )}
         </div>
@@ -139,20 +139,20 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
                 <div className="flex items-center gap-2">
                   <span className="text-xl">🌐</span>
                   <span className="text-sm font-black uppercase tracking-wide text-slate-900">
-                    1/ KPI Theo Tháng của Baseline
+                    1. Tỷ lệ chặn chung theo tháng
                   </span>
                 </div>
                 <div className="text-xs text-slate-500 font-medium mt-0.5">
-                  Toàn bộ thị trường Hải ngoại (All OV) — Chuẩn hóa T7-T8/2026
+                  Toàn bộ độc giả hải ngoại (15 quốc gia)
                 </div>
               </div>
 
               <div className="text-right">
-                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-800">
-                  Mốc Baseline: 14.80%
+                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-800" title="Tỷ lệ chặn trung bình trước thí điểm (Tháng 7 và Tháng 8/2026)">
+                  Mức chặn gốc: 14.80%
                 </span>
                 <div className="text-[10px] text-slate-500 mt-0.5">
-                  MT an toàn: ≤ 13.32%
+                  Mục tiêu giảm: Dưới 13.32%
                 </div>
               </div>
             </div>
@@ -160,9 +160,9 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
             {/* Chỉ số chính tháng đang xem */}
             <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
               <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                <span className="font-semibold">Block Rate ({activeBaseline.monthLabel}):</span>
+                <span className="font-semibold">Tỷ lệ chặn ({activeBaseline.monthLabel}):</span>
                 <span className="text-[11px] text-slate-500">
-                  Can Run Ads: <strong className="text-slate-800 font-mono">{formatCompactNumber(activeBaseline.canRunAdsPv)}</strong> PV
+                  Lượt xem có quảng cáo: <strong className="text-slate-800 font-mono">{formatCompactNumber(activeBaseline.canRunAdsPv)}</strong> lượt
                 </span>
               </div>
 
@@ -184,12 +184,12 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
                       {baselineSeries.comparisonWithPrevMonth.isBlockRateIncreased ? (
                         <>
                           <TrendingUp className="h-3.5 w-3.5 text-rose-700" />
-                          <span>TĂNG +{Math.abs(baselineSeries.comparisonWithPrevMonth.blockRateDiffPp).toFixed(2)} pp</span>
+                          <span>TĂNG +{Math.abs(baselineSeries.comparisonWithPrevMonth.blockRateDiffPp).toFixed(2)}%</span>
                         </>
                       ) : (
                         <>
                           <TrendingDown className="h-3.5 w-3.5 text-emerald-700" />
-                          <span>GIẢM -{Math.abs(baselineSeries.comparisonWithPrevMonth.blockRateDiffPp).toFixed(2)} pp</span>
+                          <span>GIẢM -{Math.abs(baselineSeries.comparisonWithPrevMonth.blockRateDiffPp).toFixed(2)}%</span>
                         </>
                       )}
                     </span>
@@ -199,15 +199,15 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
                 </div>
 
                 <div className="text-right text-xs">
-                  <div className="text-slate-500">So với Baseline 14.80%:</div>
+                  <div className="text-slate-500">So với mức gốc 14.80%:</div>
                   <div
                     className={`font-black font-mono text-sm ${
                       activeBaseline.vsBaselineDiffPp <= 0 ? 'text-emerald-700' : 'text-rose-700'
                     }`}
                   >
                     {activeBaseline.vsBaselineDiffPp <= 0
-                      ? `↘ GIẢM ${Math.abs(activeBaseline.vsBaselineDiffPp).toFixed(2)} pp`
-                      : `↗ TĂNG +${activeBaseline.vsBaselineDiffPp.toFixed(2)} pp`}
+                      ? `↘ Giảm -${Math.abs(activeBaseline.vsBaselineDiffPp).toFixed(2)}%`
+                      : `↗ Tăng +${activeBaseline.vsBaselineDiffPp.toFixed(2)}%`}
                   </div>
                 </div>
               </div>
@@ -220,10 +220,16 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
                   ) : (
                     <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
                   )}
-                  <span>{baselineSeries.summaryText}</span>
+                  <span>
+                    {baselineSeries.comparisonWithPrevMonth
+                      ? baselineSeries.comparisonWithPrevMonth.isBlockRateIncreased
+                        ? `Tỷ lệ chặn đang tăng ${Math.abs(baselineSeries.comparisonWithPrevMonth.blockRateDiffPp).toFixed(2)}% so với ${baselineSeries.comparisonWithPrevMonth.prevMonthLabel}.`
+                        : `Tỷ lệ chặn đang giảm tốt -${Math.abs(baselineSeries.comparisonWithPrevMonth.blockRateDiffPp).toFixed(2)}% so với ${baselineSeries.comparisonWithPrevMonth.prevMonthLabel}.`
+                      : 'Tháng đầu tiên trong chuỗi theo dõi.'}
+                  </span>
                 </span>
                 <span className="text-[10px] font-bold text-slate-500 shrink-0">
-                  {activeBaseline.blockRate <= baselineSeries.targetBlockRate10 ? '✓ Đạt mục tiêu -10%' : 'Chưa đạt -10%'}
+                  {activeBaseline.blockRate <= baselineSeries.targetBlockRate10 ? '✓ Đạt mục tiêu (≤ 13.32%)' : 'Chưa đạt mục tiêu'}
                 </span>
               </div>
             </div>
@@ -231,8 +237,8 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
             {/* Dải diễn biến 9 tháng của Baseline (T1 -> T9) */}
             <div>
               <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                <span>Diễn biến Block Rate từng tháng (T1 – T9)</span>
-                <span className="text-[10px] font-normal text-slate-400">Click tháng để lọc</span>
+                <span>Diễn biến tỷ lệ chặn từng tháng (T1 – T9)</span>
+                <span className="text-[10px] font-normal text-slate-400">Bấm tháng để lọc</span>
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-9 gap-1.5">
                 {baselineSeries.points.map((pt) => {
@@ -247,7 +253,7 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
                           ? 'bg-slate-900 text-white border-slate-900 ring-2 ring-slate-400 shadow-xs'
                           : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700 shadow-2xs'
                       }`}
-                      title={`Tháng ${pt.month}: Block Rate ${pt.blockRate.toFixed(2)}%`}
+                      title={`Tháng ${pt.month}: Tỷ lệ chặn ${pt.blockRate.toFixed(2)}%`}
                     >
                       <div className="text-[10px] font-bold opacity-80">T{pt.month}</div>
                       <div className="text-xs font-black font-mono my-0.5">
@@ -275,14 +281,14 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
 
           <div className="mt-3 pt-2.5 border-t border-slate-200 flex items-center justify-between text-xs">
             <span className="text-slate-500">
-              Xu hướng Baseline T6-T9: <strong className="text-emerald-700">GIẢM LIÊN TỤC (-2.94 pp)</strong>
+              Xu hướng toàn hệ thống T6-T9: <strong className="text-emerald-700">GIẢM LIÊN TỤC (-2.94%)</strong>
             </span>
             <button
               type="button"
               onClick={() => onSelectMarket('all')}
               className="font-bold text-[#9f224e] hover:underline cursor-pointer"
             >
-              Xem toàn bộ OV →
+              Xem toàn bộ hệ thống →
             </button>
           </div>
         </div>
@@ -298,23 +304,23 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
                 <div className="flex items-center gap-2">
                   <span className="text-xl">🇯🇵</span>
                   <span className="text-sm font-black uppercase tracking-wide text-slate-900">
-                    2/ KPI của Nhật Bản Theo Tháng
+                    2. Kết quả thí điểm Nhật Bản
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-700 text-white uppercase shadow-2xs">
                     Thí điểm
                   </span>
                 </div>
                 <div className="text-xs text-slate-500 font-medium mt-0.5">
-                  Thị trường kiểm thử trọng điểm (Pilot Phase 1) — Theo dõi riêng biệt
+                  Thị trường đang thử nghiệm kỹ thuật gỡ chặn quảng cáo
                 </div>
               </div>
 
               <div className="text-right">
-                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-900 border border-rose-300">
-                  Mốc Baseline: 16.06%
+                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-900 border border-rose-300" title="Tỷ lệ chặn ban đầu của riêng Nhật Bản tính trung bình Tháng 7 và Tháng 8/2026 (trước khi triển khai thí điểm)">
+                  Mức chặn gốc: 16.06%
                 </span>
                 <div className="text-[10px] text-slate-500 mt-0.5">
-                  MT Thí điểm: ≤ 14.45%
+                  Mục tiêu giảm: Dưới 14.45%
                 </div>
               </div>
             </div>
@@ -322,9 +328,9 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
             {/* Chỉ số chính tháng đang xem của Nhật */}
             <div className="p-3.5 rounded-xl bg-white border border-rose-200 shadow-2xs">
               <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                <span className="font-semibold">Block Rate Nhật ({activeJapan.monthLabel}):</span>
+                <span className="font-semibold">Tỷ lệ chặn Nhật ({activeJapan.monthLabel}):</span>
                 <span className="text-[11px] text-slate-500">
-                  Can Run Ads: <strong className="text-slate-800 font-mono">{formatCompactNumber(activeJapan.canRunAdsPv)}</strong> PV
+                  Lượt xem có quảng cáo: <strong className="text-slate-800 font-mono">{formatCompactNumber(activeJapan.canRunAdsPv)}</strong> lượt
                 </span>
               </div>
 
@@ -346,12 +352,12 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
                       {japanSeries.comparisonWithPrevMonth.isBlockRateIncreased ? (
                         <>
                           <TrendingUp className="h-3.5 w-3.5 text-rose-700" />
-                          <span>TĂNG +{Math.abs(japanSeries.comparisonWithPrevMonth.blockRateDiffPp).toFixed(2)} pp</span>
+                          <span>TĂNG +{Math.abs(japanSeries.comparisonWithPrevMonth.blockRateDiffPp).toFixed(2)}%</span>
                         </>
                       ) : (
                         <>
                           <TrendingDown className="h-3.5 w-3.5 text-emerald-700" />
-                          <span>GIẢM -{Math.abs(japanSeries.comparisonWithPrevMonth.blockRateDiffPp).toFixed(2)} pp</span>
+                          <span>GIẢM -{Math.abs(japanSeries.comparisonWithPrevMonth.blockRateDiffPp).toFixed(2)}%</span>
                         </>
                       )}
                     </span>
@@ -361,15 +367,15 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
                 </div>
 
                 <div className="text-right text-xs">
-                  <div className="text-slate-500">So với Baseline Nhật 16.06%:</div>
+                  <div className="text-slate-500">So với mức gốc 16.06%:</div>
                   <div
                     className={`font-black font-mono text-sm ${
                       activeJapan.vsBaselineDiffPp <= 0 ? 'text-emerald-700' : 'text-rose-700'
                     }`}
                   >
                     {activeJapan.vsBaselineDiffPp <= 0
-                      ? `↘ GIẢM ${Math.abs(activeJapan.vsBaselineDiffPp).toFixed(2)} pp`
-                      : `↗ TĂNG +${activeJapan.vsBaselineDiffPp.toFixed(2)} pp`}
+                      ? `↘ Giảm -${Math.abs(activeJapan.vsBaselineDiffPp).toFixed(2)}%`
+                      : `↗ Tăng +${activeJapan.vsBaselineDiffPp.toFixed(2)}%`}
                   </div>
                 </div>
               </div>
@@ -378,10 +384,16 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
               <div className="mt-2 pt-2 border-t border-rose-100 text-xs text-slate-700 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                  <span>{japanSeries.summaryText}</span>
+                  <span>
+                    {japanSeries.comparisonWithPrevMonth
+                      ? japanSeries.comparisonWithPrevMonth.isBlockRateIncreased
+                        ? `Tỷ lệ chặn tại Nhật đang tăng ${Math.abs(japanSeries.comparisonWithPrevMonth.blockRateDiffPp).toFixed(2)}% so với ${japanSeries.comparisonWithPrevMonth.prevMonthLabel}.`
+                        : `Tỷ lệ chặn tại Nhật đang giảm -${Math.abs(japanSeries.comparisonWithPrevMonth.blockRateDiffPp).toFixed(2)}% so với ${japanSeries.comparisonWithPrevMonth.prevMonthLabel}.`
+                      : 'Tháng đầu tiên trong chuỗi theo dõi.'}
+                  </span>
                 </span>
                 <span className="text-[10px] font-bold text-rose-800 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 shrink-0">
-                  {activeJapan.blockRate <= japanSeries.targetBlockRate10 ? '✓ Đạt mục tiêu thí điểm' : 'Cần can thiệp gỡ chặn'}
+                  {activeJapan.blockRate <= japanSeries.targetBlockRate10 ? '✓ Đạt mục tiêu (≤ 14.45%)' : 'Chưa đạt mục tiêu'}
                 </span>
               </div>
             </div>
@@ -389,8 +401,8 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
             {/* Dải diễn biến 9 tháng của Nhật Bản (T1 -> T9) */}
             <div>
               <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                <span>Diễn biến Block Rate Nhật Bản từng tháng (T1 – T9)</span>
-                <span className="text-[10px] font-normal text-slate-400">Click tháng để lọc</span>
+                <span>Diễn biến tỷ lệ chặn Nhật Bản từng tháng (T1 – T9)</span>
+                <span className="text-[10px] font-normal text-slate-400">Bấm tháng để lọc</span>
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-9 gap-1.5">
                 {japanSeries.points.map((pt) => {
@@ -402,10 +414,10 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
                       onClick={() => onSelectMonth(pt.month)}
                       className={`p-1.5 rounded-lg border text-center transition-all cursor-pointer flex flex-col justify-between ${
                         isSelected
-                          ? 'bg-rose-750 bg-[#9f224e] text-white border-rose-800 ring-2 ring-rose-300 shadow-xs'
+                          ? 'bg-[#9f224e] text-white border-rose-800 ring-2 ring-rose-300 shadow-xs'
                           : 'bg-white hover:bg-rose-50 border-rose-200 text-slate-700 shadow-2xs'
                       }`}
-                      title={`Nhật Bản Tháng ${pt.month}: Block Rate ${pt.blockRate.toFixed(2)}%`}
+                      title={`Nhật Bản Tháng ${pt.month}: Tỷ lệ chặn ${pt.blockRate.toFixed(2)}%`}
                     >
                       <div className="text-[10px] font-bold opacity-80">T{pt.month}</div>
                       <div className="text-xs font-black font-mono my-0.5">
@@ -433,14 +445,14 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
 
           <div className="mt-3 pt-2.5 border-t border-rose-200 flex items-center justify-between text-xs">
             <span className="text-slate-600">
-              Cảnh báo thí điểm: <strong className="text-rose-700">Tỷ lệ chặn T6-T9 tăng (+2.83 pp)</strong>
+              Cảnh báo thí điểm: <strong className="text-rose-700">Tỷ lệ chặn T6-T9 tăng (+2.83%)</strong>
             </span>
             <button
               type="button"
               onClick={() => onSelectMarket('Japan')}
               className="inline-flex items-center gap-1 font-bold text-rose-700 hover:text-rose-900 cursor-pointer"
             >
-              <span>Lọc riêng Nhật Bản</span>
+              <span>Xem chi tiết Nhật Bản</span>
               <ArrowRight className="h-3 w-3" />
             </button>
           </div>
@@ -452,10 +464,10 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
         <div className="pt-3 border-t border-slate-200 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-              Bảng Đối Chiếu Diễn Biến 9 Tháng (Baseline Toàn bộ OV vs. Thí Điểm Nhật Bản)
+              Bảng đối chiếu 9 tháng: Toàn hệ thống vs Thí điểm Nhật Bản
             </span>
             <span className="text-[11px] text-slate-500">
-              * Tăng = Block rate tăng (bị chặn nhiều hơn). Giảm = Block rate giảm (gỡ chặn thành công).
+              * Tăng = Tỷ lệ chặn tăng (bị chặn quảng cáo nhiều hơn). Giảm = Tỷ lệ chặn giảm (gỡ chặn tốt hơn).
             </span>
           </div>
 
@@ -464,12 +476,12 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
               <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 uppercase text-[10px]">
                 <tr>
                   <th className="py-2.5 px-3">Tháng</th>
-                  <th className="py-2.5 px-3 text-right">Baseline OV: Block Rate</th>
-                  <th className="py-2.5 px-3 text-center">Xu hướng Baseline (MoM)</th>
-                  <th className="py-2.5 px-3 text-right">Nhật Bản: Block Rate</th>
-                  <th className="py-2.5 px-3 text-center">Xu hướng Nhật Bản (MoM)</th>
-                  <th className="py-2.5 px-3 text-right">Chênh lệch (Nhật vs OV)</th>
-                  <th className="py-2.5 px-3 text-center">Đánh giá Thí điểm Nhật</th>
+                  <th className="py-2.5 px-3 text-right">Toàn hệ thống: Tỷ lệ chặn</th>
+                  <th className="py-2.5 px-3 text-center">So với tháng trước</th>
+                  <th className="py-2.5 px-3 text-right">Nhật Bản: Tỷ lệ chặn</th>
+                  <th className="py-2.5 px-3 text-center">So với tháng trước</th>
+                  <th className="py-2.5 px-3 text-right">Chênh lệch (Nhật vs Toàn hệ thống)</th>
+                  <th className="py-2.5 px-3 text-center">Đánh giá kết quả thí điểm</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
@@ -507,11 +519,11 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
                           <span className="text-slate-400 text-[11px]">—</span>
                         ) : basePt.isBlockRateIncreased ? (
                           <span className="inline-flex items-center gap-0.5 text-rose-700 text-[11px] font-bold">
-                            <TrendingUp className="h-3 w-3" /> TĂNG +{basePt.momBlockRateDiffPp.toFixed(2)} pp
+                            <TrendingUp className="h-3 w-3" /> Tăng +{basePt.momBlockRateDiffPp.toFixed(2)}%
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-0.5 text-emerald-700 text-[11px] font-bold">
-                            <TrendingDown className="h-3 w-3" /> GIẢM {basePt.momBlockRateDiffPp.toFixed(2)} pp
+                            <TrendingDown className="h-3 w-3" /> Giảm -{Math.abs(basePt.momBlockRateDiffPp).toFixed(2)}%
                           </span>
                         )}
                       </td>
@@ -527,11 +539,11 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
                           <span className="text-slate-400 text-[11px]">—</span>
                         ) : jpPt?.isBlockRateIncreased ? (
                           <span className="inline-flex items-center gap-0.5 text-rose-700 text-[11px] font-bold">
-                            <TrendingUp className="h-3 w-3" /> TĂNG +{jpPt.momBlockRateDiffPp.toFixed(2)} pp
+                            <TrendingUp className="h-3 w-3" /> Tăng +{jpPt.momBlockRateDiffPp.toFixed(2)}%
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-0.5 text-emerald-700 text-[11px] font-bold">
-                            <TrendingDown className="h-3 w-3" /> GIẢM {jpPt.momBlockRateDiffPp.toFixed(2)} pp
+                            <TrendingDown className="h-3 w-3" /> Giảm -{Math.abs(jpPt.momBlockRateDiffPp).toFixed(2)}%
                           </span>
                         )}
                       </td>
@@ -542,18 +554,18 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
                           diffJpVsBase > 0 ? 'text-rose-700' : 'text-emerald-700'
                         }`}
                       >
-                        {diffJpVsBase > 0 ? `+${diffJpVsBase.toFixed(2)} pp` : `${diffJpVsBase.toFixed(2)} pp`}
+                        {diffJpVsBase > 0 ? `+${diffJpVsBase.toFixed(2)}%` : `${diffJpVsBase.toFixed(2)}%`}
                       </td>
 
                       {/* Evaluation */}
                       <td className="py-2 px-3 text-center font-sans">
                         {jpPt && jpPt.blockRate <= japanSeries.targetBlockRate10 ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
-                            Đạt KPI ≤ 14.45%
+                            Đạt mục tiêu (≤ 14.45%)
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-900 border border-rose-300">
-                            Cao hơn mục tiêu (+{(jpPt ? jpPt.blockRate - japanSeries.targetBlockRate10 : 0).toFixed(2)} pp)
+                            Vượt mục tiêu (+{(jpPt ? jpPt.blockRate - japanSeries.targetBlockRate10 : 0).toFixed(2)}%)
                           </span>
                         )}
                       </td>
