@@ -39,6 +39,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { DataQualityModal } from './components/DataQualityModal';
 import { MetricFormulaModal, MetricKey } from './components/MetricFormulaModal';
 import { TechOrderSpecModal } from './components/TechOrderSpecModal';
+import { PrimaryMonthlyKpiPilotSection } from './components/PrimaryMonthlyKpiPilotSection';
 import {
   LayoutDashboard,
   Calendar,
@@ -342,6 +343,28 @@ export default function App() {
           availableMonths={normalizedData.availableMonths}
           grainNotice={summary.grainNotice || null}
         />
+
+        {/* THÔNG TIN CHÍNH: 1/ KPI theo tháng của Baseline & 2/ KPI của Nhật Bản theo tháng (Thí điểm) */}
+        <section id="primary-pilot-kpi" aria-label="Thông tin chính KPI Baseline và Thí điểm Nhật Bản">
+          <PrimaryMonthlyKpiPilotSection
+            selectedMonth={filters.selectedMonth}
+            activeMarket={filters.market}
+            onSelectMonth={(m) =>
+              setFilters((prev) => ({
+                ...prev,
+                timeMode: 'month',
+                selectedMonth: m,
+              }))
+            }
+            onSelectMarket={(m) =>
+              setFilters((prev) => ({
+                ...prev,
+                market: m,
+              }))
+            }
+            onOpenTechDoc={() => setIsTechSpecModalOpen(true)}
+          />
+        </section>
 
         {/* Section View Tabs */}
         <div className="flex items-center justify-between border-b border-slate-200 pb-1">

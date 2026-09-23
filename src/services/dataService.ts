@@ -2117,3 +2117,265 @@ export function loadAndNormalizeAllData() {
 
 export const calculateSampleAllocations = calculateSampleAllocation;
 
+/**
+ * Monthly KPI breakdown data point
+ */
+export interface MonthlyKpiPoint {
+  month: number;
+  monthLabel: string;
+  totalPv: number;
+  canRunAdsPv: number;
+  blockAdsPv: number;
+  blockRate: number;
+  momBlockRateDiffPp: number | null; // change compared to previous month in percentage points
+  isBlockRateIncreased: boolean | null; // true = tăng (xấu hơn), false = giảm (tốt hơn), null = no prev month
+  momRunAdsDiffPct: number | null;
+  isRunAdsIncreased: boolean | null;
+  vsBaselineDiffPp: number; // current block rate - baseline block rate
+  isTargetMet10: boolean; // blockRate <= targetBlockRate10
+  isTargetMet15: boolean; // blockRate <= targetBlockRate15
+}
+
+export interface MonthlyKpiSeries {
+  id: 'baseline' | 'japan';
+  title: string;
+  subtitle: string;
+  flag: string;
+  tag: string;
+  baselineBlockRate: number;
+  targetBlockRate10: number;
+  targetBlockRate15: number;
+  baselineRunAdsMonthly: number;
+  points: MonthlyKpiPoint[];
+  activePoint: MonthlyKpiPoint;
+  comparisonWithPrevMonth: {
+    prevMonthLabel: string;
+    blockRateDiffPp: number;
+    isBlockRateIncreased: boolean;
+    runAdsDiffPct: number;
+    isRunAdsIncreased: boolean;
+  } | null;
+  summaryText: string;
+}
+
+/**
+ * Calculate Monthly KPI data for Baseline (All OV) and Japan (Pilot)
+ */
+export function getBaselineAndJapanMonthlyKpis(selectedMonth: number | 'all' = 'all'): {
+  baselineSeries: MonthlyKpiSeries;
+  japanSeries: MonthlyKpiSeries;
+  availableMonths: number[];
+  activeMonthNumber: number;
+} {
+  const months = getAvailableMonths(); // [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  const activeMonthNumber =
+    selectedMonth === 'all' ? (months.length > 0 ? months[months.length - 1] : 9) : Number(selectedMonth);
+
+  // 1. Calculate Baseline (All OV) monthly points
+  const baselineSpec = {
+    baselineBlockRate: 14.80,
+    targetBlockRate10: 13.32,
+    targetBlockRate15: 12.58,
+    baselineRunAdsMonthly: 31184996,
+  };
+
+  const baselinePoints: MonthlyKpiPoint[] = months.map((m, idx) => {
+    const monthRecords = countryRecords.filter((r) => r.month === m);
+    const totalPv = monthRecords.reduce((acc, r) => acc + r.pvs, 0);
+    const canRunAdsPv = monthRecords.reduce((acc, r) => acc + r.pvsRunAds, 0);
+    const blockAdsPv = Math.max(0, totalPv - canRunAdsPv);
+    const blockRate = totalPv > 0 ? (blockAdsPv / totalPv) * 100 : 0;
+
+    let momBlockRateDiffPp: number | null = null;
+    let isBlockRateIncreased: boolean | null = null;
+    let momRunAdsDiffPct: number | null = null;
+    let isRunAdsIncreased: boolean | null = null;
+
+    if (idx > 0) {
+      const prevMonth = months[idx - 1];
+      const prevRecords = countryRecords.filter((r) => r.month === prevMonth);
+      const prevTotalPv = prevRecords.reduce((acc, r) => acc + r.pvs, 0);
+      const prevCanRunAds = prevRecords.reduce((acc, r) => acc + r.pvsRunAds, 0);
+      const prevBlockAds = Math.max(0, prevTotalPv - prevCanRunAds);
+      const prevBlockRate = prevTotalPv > 0 ? (prevBlockAds / prevTotalPv) * 100 : 0;
+
+      momBlockRateDiffPp = blockRate - prevBlockRate;
+      isBlockRateIncreased = momBlockRateDiffPp > 0.001;
+      if (prevCanRunAds > 0) {
+        momRunAdsDiffPct = ((canRunAdsPv - prevCanRunAds) / prevCanRunAds) * 100;
+        isRunAdsIncreased = momRunAdsDiffPct > 0;
+      }
+    }
+
+    const vsBaselineDiffPp = blockRate - baselineSpec.baselineBlockRate;
+    const isTargetMet10 = blockRate <= baselineSpec.targetBlockRate10;
+    const isTargetMet15 = blockRate <= baselineSpec.targetBlockRate15;
+
+    return {
+      month: m,
+      monthLabel: m === 9 ? 'Tháng 9 (MTD)' : `Tháng ${m}`,
+      totalPv,
+      canRunAdsPv,
+      blockAdsPv,
+      blockRate,
+      momBlockRateDiffPp,
+      isBlockRateIncreased,
+      momRunAdsDiffPct,
+      isRunAdsIncreased,
+      vsBaselineDiffPp,
+      isTargetMet10,
+      isTargetMet15,
+    };
+  });
+
+  // 2. Calculate Japan (Pilot) monthly points
+  const jpSpec = COUNTRY_KPI_SPECS['Japan'] || {
+    blockRateBaseline: 16.06,
+    targetBlockRate10: 14.45,
+    targetBlockRate15: 13.65,
+    runAdsBaselineMonthly: 1852986,
+  };
+
+  const japanPoints: MonthlyKpiPoint[] = months.map((m, idx) => {
+    const monthRecords = countryRecords.filter(
+      (r) => r.month === m && r.country.toLowerCase() === 'japan'
+    );
+    const totalPv = monthRecords.reduce((acc, r) => acc + r.pvs, 0);
+    const canRunAdsPv = monthRecords.reduce((acc, r) => acc + r.pvsRunAds, 0);
+    const blockAdsPv = Math.max(0, totalPv - canRunAdsPv);
+    const blockRate = totalPv > 0 ? (blockAdsPv / totalPv) * 100 : 0;
+
+    let momBlockRateDiffPp: number | null = null;
+    let isBlockRateIncreased: boolean | null = null;
+    let momRunAdsDiffPct: number | null = null;
+    let isRunAdsIncreased: boolean | null = null;
+
+    if (idx > 0) {
+      const prevMonth = months[idx - 1];
+      const prevRecords = countryRecords.filter(
+        (r) => r.month === prevMonth && r.country.toLowerCase() === 'japan'
+      );
+      const prevTotalPv = prevRecords.reduce((acc, r) => acc + r.pvs, 0);
+      const prevCanRunAds = prevRecords.reduce((acc, r) => acc + r.pvsRunAds, 0);
+      const prevBlockAds = Math.max(0, prevTotalPv - prevCanRunAds);
+      const prevBlockRate = prevTotalPv > 0 ? (prevBlockAds / prevTotalPv) * 100 : 0;
+
+      momBlockRateDiffPp = blockRate - prevBlockRate;
+      isBlockRateIncreased = momBlockRateDiffPp > 0.001;
+      if (prevCanRunAds > 0) {
+        momRunAdsDiffPct = ((canRunAdsPv - prevCanRunAds) / prevCanRunAds) * 100;
+        isRunAdsIncreased = momRunAdsDiffPct > 0;
+      }
+    }
+
+    const vsBaselineDiffPp = blockRate - jpSpec.blockRateBaseline;
+    const isTargetMet10 = blockRate <= jpSpec.targetBlockRate10;
+    const isTargetMet15 = blockRate <= jpSpec.targetBlockRate15;
+
+    return {
+      month: m,
+      monthLabel: m === 9 ? 'Tháng 9 (MTD)' : `Tháng ${m}`,
+      totalPv,
+      canRunAdsPv,
+      blockAdsPv,
+      blockRate,
+      momBlockRateDiffPp,
+      isBlockRateIncreased,
+      momRunAdsDiffPct,
+      isRunAdsIncreased,
+      vsBaselineDiffPp,
+      isTargetMet10,
+      isTargetMet15,
+    };
+  });
+
+  const activeBaselinePoint =
+    baselinePoints.find((p) => p.month === activeMonthNumber) ||
+    baselinePoints[baselinePoints.length - 1];
+
+  const activeJapanPoint =
+    japanPoints.find((p) => p.month === activeMonthNumber) ||
+    japanPoints[japanPoints.length - 1];
+
+  // Comparisons
+  const activeMonthIdx = months.indexOf(activeMonthNumber);
+  const prevMonthIdx = activeMonthIdx > 0 ? activeMonthIdx - 1 : -1;
+
+  let baselineComparison = null;
+  if (prevMonthIdx >= 0) {
+    const prev = baselinePoints[prevMonthIdx];
+    const diff = activeBaselinePoint.blockRate - prev.blockRate;
+    baselineComparison = {
+      prevMonthLabel: prev.monthLabel,
+      blockRateDiffPp: diff,
+      isBlockRateIncreased: diff > 0,
+      runAdsDiffPct:
+        prev.canRunAdsPv > 0
+          ? ((activeBaselinePoint.canRunAdsPv - prev.canRunAdsPv) / prev.canRunAdsPv) * 100
+          : 0,
+      isRunAdsIncreased: activeBaselinePoint.canRunAdsPv >= prev.canRunAdsPv,
+    };
+  }
+
+  let japanComparison = null;
+  if (prevMonthIdx >= 0) {
+    const prev = japanPoints[prevMonthIdx];
+    const diff = activeJapanPoint.blockRate - prev.blockRate;
+    japanComparison = {
+      prevMonthLabel: prev.monthLabel,
+      blockRateDiffPp: diff,
+      isBlockRateIncreased: diff > 0,
+      runAdsDiffPct:
+        prev.canRunAdsPv > 0
+          ? ((activeJapanPoint.canRunAdsPv - prev.canRunAdsPv) / prev.canRunAdsPv) * 100
+          : 0,
+      isRunAdsIncreased: activeJapanPoint.canRunAdsPv >= prev.canRunAdsPv,
+    };
+  }
+
+  const baselineSeries: MonthlyKpiSeries = {
+    id: 'baseline',
+    title: 'KPI Theo Tháng của Baseline',
+    subtitle: 'Toàn bộ thị trường Hải ngoại (All OV)',
+    flag: '🌐',
+    tag: 'Baseline Chuẩn hóa T7-T8: 14.80%',
+    baselineBlockRate: baselineSpec.baselineBlockRate,
+    targetBlockRate10: baselineSpec.targetBlockRate10,
+    targetBlockRate15: baselineSpec.targetBlockRate15,
+    baselineRunAdsMonthly: baselineSpec.baselineRunAdsMonthly,
+    points: baselinePoints,
+    activePoint: activeBaselinePoint,
+    comparisonWithPrevMonth: baselineComparison,
+    summaryText:
+      baselineComparison?.isBlockRateIncreased === false
+        ? `Tỷ lệ chặn ${activeBaselinePoint.monthLabel} đang GIẢM ${Math.abs(baselineComparison.blockRateDiffPp).toFixed(2)} pp so với ${baselineComparison.prevMonthLabel} (Cải thiện tích cực).`
+        : `Tỷ lệ chặn ${activeBaselinePoint.monthLabel} đang TĂNG ${Math.abs(baselineComparison?.blockRateDiffPp || 0).toFixed(2)} pp so với ${baselineComparison?.prevMonthLabel} (Cần chú ý).`,
+  };
+
+  const japanSeries: MonthlyKpiSeries = {
+    id: 'japan',
+    title: 'KPI của Nhật Bản Theo Tháng',
+    subtitle: 'Thị trường Thí điểm Trọng điểm (Pilot Phase 1)',
+    flag: '🇯🇵',
+    tag: 'Baseline Chuẩn hóa T7-T8: 16.06%',
+    baselineBlockRate: jpSpec.blockRateBaseline,
+    targetBlockRate10: jpSpec.targetBlockRate10,
+    targetBlockRate15: jpSpec.targetBlockRate15,
+    baselineRunAdsMonthly: jpSpec.runAdsBaselineMonthly,
+    points: japanPoints,
+    activePoint: activeJapanPoint,
+    comparisonWithPrevMonth: japanComparison,
+    summaryText:
+      japanComparison?.isBlockRateIncreased === true
+        ? `Tỷ lệ chặn tại Nhật Bản ${activeJapanPoint.monthLabel} đang TĂNG ${Math.abs(japanComparison.blockRateDiffPp).toFixed(2)} pp so với ${japanComparison.prevMonthLabel} (Cần gỡ chặn kỹ thuật).`
+        : `Tỷ lệ chặn tại Nhật Bản ${activeJapanPoint.monthLabel} đang GIẢM ${Math.abs(japanComparison?.blockRateDiffPp || 0).toFixed(2)} pp so với ${japanComparison?.prevMonthLabel} (Tín hiệu tốt).`,
+  };
+
+  return {
+    baselineSeries,
+    japanSeries,
+    availableMonths: months,
+    activeMonthNumber,
+  };
+}
+
