@@ -24,6 +24,7 @@ import {
 interface PrimaryMonthlyKpiPilotSectionProps {
   selectedMonth: number | 'all';
   activeMarket?: string;
+  dataVersion?: number;
   onSelectMonth: (month: number | 'all') => void;
   onSelectMarket: (market: string) => void;
   onOpenTechDoc?: () => void;
@@ -32,6 +33,7 @@ interface PrimaryMonthlyKpiPilotSectionProps {
 export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSectionProps> = ({
   selectedMonth,
   activeMarket,
+  dataVersion,
   onSelectMonth,
   onSelectMarket,
   onOpenTechDoc,
@@ -40,7 +42,7 @@ export const PrimaryMonthlyKpiPilotSection: React.FC<PrimaryMonthlyKpiPilotSecti
 
   const { baselineSeries, japanSeries, availableMonths, activeMonthNumber } = useMemo(() => {
     return getBaselineAndJapanMonthlyKpis(selectedMonth);
-  }, [selectedMonth]);
+  }, [selectedMonth, dataVersion]);
 
   const activeBaseline = baselineSeries.activePoint;
   const activeJapan = japanSeries.activePoint;

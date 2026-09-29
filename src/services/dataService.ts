@@ -180,12 +180,76 @@ export function normalizeDateString(raw: string): {
 }
 
 /**
+ * Robustly extract month number (1 - 12) from arbitrary representations
+ * Supports: 9, '9', '09', 'Tháng 9', 'Tháng 09', 'T9', 'thang 9', 'September', 'Sep', '2026-09', '09/2026', etc.
+ */
+export function parseMonthValue(val: any): number | null {
+  if (val === undefined || val === null) return null;
+  if (typeof val === 'number') {
+    return val >= 1 && val <= 12 ? Math.round(val) : null;
+  }
+  const str = String(val).trim();
+  if (!str) return null;
+
+  // Direct number: '9', '09', '9.0'
+  const directNum = parseFloat(str);
+  if (!isNaN(directNum) && directNum >= 1 && directNum <= 12 && String(directNum).length <= 4) {
+    return Math.round(directNum);
+  }
+
+  // Vietnamese 'Tháng 9', 'Tháng 09', 'T9', 'Thang 9'
+  const vnMatch = str.match(/(?:tháng|thang|t)\s*(\d{1,2})/i);
+  if (vnMatch) {
+    const m = parseInt(vnMatch[1], 10);
+    if (m >= 1 && m <= 12) return m;
+  }
+
+  // English month names
+  const enMonths: Record<string, number> = {
+    jan: 1, january: 1,
+    feb: 2, february: 2,
+    mar: 3, march: 3,
+    apr: 4, april: 4,
+    may: 5,
+    jun: 6, june: 6,
+    jul: 7, july: 7,
+    aug: 8, august: 8,
+    sep: 9, september: 9,
+    oct: 10, october: 10,
+    nov: 11, november: 11,
+    dec: 12, december: 12,
+  };
+  const lower = str.toLowerCase().replace(/[^a-z]/g, '');
+  if (enMonths[lower]) return enMonths[lower];
+
+  // Date pattern: '2026-09' or '09/2026' or '2026/09/01'
+  const yyyymm = str.match(/\d{4}[-/](\d{1,2})/);
+  if (yyyymm) {
+    const m = parseInt(yyyymm[1], 10);
+    if (m >= 1 && m <= 12) return m;
+  }
+  const mmyyyy = str.match(/(\d{1,2})[-/]\d{4}/);
+  if (mmyyyy) {
+    const m = parseInt(mmyyyy[1], 10);
+    if (m >= 1 && m <= 12) return m;
+  }
+
+  const digits = str.replace(/[^\d]/g, '');
+  if (digits.length >= 1 && digits.length <= 2) {
+    const m = parseInt(digits, 10);
+    if (m >= 1 && m <= 12) return m;
+  }
+
+  return null;
+}
+
+/**
  * Clean and parse numeric values supporting US and Vietnamese formats
  */
 export function cleanNumber(val: string | number | undefined | null): number {
   if (val === undefined || val === null || val === '') return 0;
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
-  let str = String(val).trim().replace(/\s/g, '');
+  let str = String(val).trim().replace(/[\s\u00A0\"']/g, '');
   if (!str) return 0;
 
   const hasComma = str.includes(',');
@@ -200,16 +264,25 @@ export function cleanNumber(val: string | number | undefined | null): number {
       str = str.replace(/,/g, '');
     }
   } else if (hasDot && !hasComma) {
-    const dotCount = (str.match(/\./g) || []).length;
-    if (dotCount > 1) {
+    const dotParts = str.split('.');
+    if (dotParts.length > 2) {
       str = str.replace(/\./g, '');
+    } else if (dotParts.length === 2) {
+      // If dot followed by 3 digits and integer part is 1..3 digits, it's thousands separator (1.234)
+      if (dotParts[1].length === 3 && dotParts[0].length >= 1 && dotParts[0].length <= 3) {
+        str = str.replace('.', '');
+      }
     }
   } else if (hasComma && !hasDot) {
-    const commaCount = (str.match(/,/g) || []).length;
-    if (commaCount > 1) {
+    const commaParts = str.split(',');
+    if (commaParts.length > 2) {
       str = str.replace(/,/g, '');
-    } else {
-      str = str.replace(',', '.');
+    } else if (commaParts.length === 2) {
+      if (commaParts[1].length === 3 && commaParts[0].length >= 1 && commaParts[0].length <= 3) {
+        str = str.replace(',', '');
+      } else {
+        str = str.replace(',', '.');
+      }
     }
   }
 
@@ -221,6 +294,10 @@ export function cleanPercent(val: string | number | undefined | null): number {
   if (val === undefined || val === null || val === '') return 0;
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
   const cleaned = String(val).replace(/%/g, '').trim();
+  const commaCount = (cleaned.match(/,/g) || []).length;
+  if (commaCount === 1 && !cleaned.includes('.')) {
+    return Number(cleaned.replace(',', '.')) || 0;
+  }
   return cleanNumber(cleaned);
 }
 
@@ -505,9 +582,14 @@ export function parseFolderCsv(csvContent: string): NormalizedFolderRecord[] {
         'month',
         'Tháng',
         'thang',
+        'Thang',
         'month_number',
+        'Month_Number',
+        'Mo',
+        'MonthNo',
+        'Kỳ',
       ]);
-      const month = Number(cleanNumber(rawMonth)) || 1;
+      const month = parseMonthValue(rawMonth) ?? 1;
 
       const rawPvs = getFieldCaseInsensitive(row, [
         'PVS',
@@ -520,6 +602,7 @@ export function parseFolderCsv(csvContent: string): NormalizedFolderRecord[] {
         'PV',
         'pv',
         'Total PV',
+        'Total PVs',
         'Lượt xem',
       ]);
       const pvs = cleanNumber(rawPvs);
@@ -532,6 +615,8 @@ export function parseFolderCsv(csvContent: string): NormalizedFolderRecord[] {
         'Run ads',
         'run ads',
         'Run Ads PV',
+        'Can run ads',
+        'Lượt chạy ads',
       ]);
       const pvsRunAds = cleanNumber(rawRunAds);
 
@@ -539,7 +624,7 @@ export function parseFolderCsv(csvContent: string): NormalizedFolderRecord[] {
       const blockRate = pvs > 0 ? (blockAds / pvs) * 100 : 0;
       const canRunAdsRate = pvs > 0 ? (pvsRunAds / pvs) * 100 : 0;
 
-      const rawKpi = getFieldCaseInsensitive(row, ['%KPI', '%kpi', 'KPI%', 'KPI', 'kpi']);
+      const rawKpi = getFieldCaseInsensitive(row, ['%KPI', '%kpi', 'KPI%', 'KPI', 'kpi', 'Target%', '%Target', 'Mục tiêu']);
       const kpiPercent = cleanPercent(rawKpi);
 
       return {
@@ -579,6 +664,8 @@ export function parseCountryCsv(csvContent: string): NormalizedCountryRecord[] {
         'market',
         'Thị trường',
         'thi truong',
+        'Country Name',
+        'Nation',
       ]);
       return countryVal !== undefined && countryVal !== null && String(countryVal).trim() !== '';
     })
@@ -592,6 +679,8 @@ export function parseCountryCsv(csvContent: string): NormalizedCountryRecord[] {
         'market',
         'Thị trường',
         'thi truong',
+        'Country Name',
+        'Nation',
       ]);
       const country = String(rawCountry).trim();
 
@@ -605,6 +694,8 @@ export function parseCountryCsv(csvContent: string): NormalizedCountryRecord[] {
         'ngay',
         'Timestamp',
         'timestamp',
+        'Thời gian',
+        'Time',
       ]);
 
       const rawMonth = getFieldCaseInsensitive(row, [
@@ -612,30 +703,31 @@ export function parseCountryCsv(csvContent: string): NormalizedCountryRecord[] {
         'Month',
         'Month Number',
         'month number',
+        'Month_Number',
+        'month_number',
         'Tháng',
         'thang',
+        'Thang',
+        'Mo',
+        'MonthNo',
+        'Month_No',
+        'Kỳ',
+        'Period',
       ]);
 
       let month = 1;
       let year = 2026;
       let dayString: string | undefined = undefined;
 
+      const parsedM = parseMonthValue(rawMonth);
       if (rawDate !== undefined && rawDate !== null && String(rawDate).trim() !== '') {
         const norm = normalizeDateString(String(rawDate));
         dayString = norm.dayString;
         month = norm.month >= 1 && norm.month <= 12 ? norm.month : 1;
         year = norm.year || 2026;
-      } else if (rawMonth !== undefined && rawMonth !== null && String(rawMonth).trim() !== '') {
-        const cleanM = cleanNumber(rawMonth);
-        month = cleanM >= 1 && cleanM <= 12 ? Math.round(cleanM) : 1;
       }
-
-      // If rawMonth is explicitly provided and valid, give it priority or use it
-      if (rawMonth !== undefined && rawMonth !== null && String(rawMonth).trim() !== '') {
-        const cleanM = cleanNumber(rawMonth);
-        if (cleanM >= 1 && cleanM <= 12) {
-          month = Math.round(cleanM);
-        }
+      if (parsedM !== null) {
+        month = parsedM;
       }
 
       const rawPvs = getFieldCaseInsensitive(row, [
@@ -649,7 +741,9 @@ export function parseCountryCsv(csvContent: string): NormalizedCountryRecord[] {
         'PV',
         'pv',
         'Total PV',
+        'Total PVs',
         'Lượt xem',
+        'Traffic',
       ]);
       const pvs = cleanNumber(rawPvs);
 
@@ -661,10 +755,37 @@ export function parseCountryCsv(csvContent: string): NormalizedCountryRecord[] {
         'Run ads',
         'run ads',
         'Run Ads PV',
+        'Can run ads',
+        'Lượt chạy ads',
+        'Pvs Run Ads',
+        'Ads run',
       ]);
-      const pvsRunAds = cleanNumber(rawRunAds);
 
-      const blockAds = Math.max(0, pvs - pvsRunAds);
+      const rawBlock = getFieldCaseInsensitive(row, [
+        'Block ads',
+        'Block Ads',
+        'block ads',
+        'block_ads',
+        'Blocked',
+        'Bị chặn',
+        'Block PV',
+      ]);
+
+      let pvsRunAds = 0;
+      let blockAds = 0;
+
+      if (rawRunAds !== undefined && rawRunAds !== null && String(rawRunAds).trim() !== '') {
+        pvsRunAds = cleanNumber(rawRunAds);
+        blockAds = Math.max(0, pvs - pvsRunAds);
+      } else if (rawBlock !== undefined && rawBlock !== null && String(rawBlock).trim() !== '') {
+        blockAds = cleanNumber(rawBlock);
+        pvsRunAds = Math.max(0, pvs - blockAds);
+      } else {
+        // Fallback: estimate from baseline 86% run rate if neither provided
+        pvsRunAds = Math.round(pvs * 0.86);
+        blockAds = Math.max(0, pvs - pvsRunAds);
+      }
+
       const blockRate = pvs > 0 ? (blockAds / pvs) * 100 : 0;
       const canRunAdsRate = pvs > 0 ? (pvsRunAds / pvs) * 100 : 0;
 
@@ -706,6 +827,8 @@ export function parseDateCsv(csvContent: string): NormalizedDateRecord[] {
         'ngay',
         'Timestamp',
         'timestamp',
+        'Thời gian',
+        'Time',
       ]);
       return dayVal !== undefined && String(dayVal).trim() !== '';
     })
@@ -720,6 +843,8 @@ export function parseDateCsv(csvContent: string): NormalizedDateRecord[] {
           'ngay',
           'Timestamp',
           'timestamp',
+          'Thời gian',
+          'Time',
         ])
       ).trim();
       const dateInfo = normalizeDateString(rawDay);
@@ -731,8 +856,10 @@ export function parseDateCsv(csvContent: string): NormalizedDateRecord[] {
         'target',
         'Mục tiêu',
         'muc tieu',
+        'KPI Target',
+        'Kế hoạch',
       ]);
-      const kpiTarget = cleanNumber(rawKpi);
+      const kpiTarget = cleanNumber(rawKpi) || 1542859;
 
       const rawPageview = getFieldCaseInsensitive(row, [
         'Pageview',
@@ -750,6 +877,37 @@ export function parseDateCsv(csvContent: string): NormalizedDateRecord[] {
           ? cleanNumber(rawPageview)
           : null;
 
+      const rawRunAds = getFieldCaseInsensitive(row, [
+        'Pvs run ads',
+        'PVS run ads',
+        'pvs run ads',
+        'Run ads',
+        'run ads',
+        'Can run ads',
+      ]);
+      const canRunAdsPv =
+        rawRunAds !== undefined && rawRunAds !== null && String(rawRunAds).trim() !== ''
+          ? cleanNumber(rawRunAds)
+          : undefined;
+
+      const rawBlock = getFieldCaseInsensitive(row, [
+        'Block ads',
+        'Block Ads',
+        'block ads',
+        'Bị chặn',
+      ]);
+      const blockAdsPv =
+        rawBlock !== undefined && rawBlock !== null && String(rawBlock).trim() !== ''
+          ? cleanNumber(rawBlock)
+          : canRunAdsPv !== undefined && pageview !== null
+          ? Math.max(0, pageview - canRunAdsPv)
+          : undefined;
+
+      const blockRate =
+        pageview && pageview > 0 && blockAdsPv !== undefined
+          ? (blockAdsPv / pageview) * 100
+          : undefined;
+
       return {
         id: `date-${dateInfo.dayString}-${index}`,
         dayString: dateInfo.dayString,
@@ -758,44 +916,161 @@ export function parseDateCsv(csvContent: string): NormalizedDateRecord[] {
         year: dateInfo.year,
         kpiTarget,
         pageview,
+        canRunAdsPv,
+        blockAdsPv,
+        blockRate,
       };
     });
 }
 
 /**
- * In-memory state holding the parsed records with localStorage persistence fallback
+ * Upsert functions to intelligently merge incoming updates into baseline datasets
+ * PREVENTS wiping out historical baseline months when updating recent numbers
+ */
+export function upsertCountryRecords(
+  base: NormalizedCountryRecord[],
+  incoming: NormalizedCountryRecord[]
+): NormalizedCountryRecord[] {
+  if (!incoming || incoming.length === 0) return base;
+
+  const map = new Map<string, NormalizedCountryRecord>();
+  base.forEach((r) => {
+    const key = r.dayString
+      ? `${r.country.toLowerCase()}_d_${r.dayString}`
+      : `${r.country.toLowerCase()}_m_${r.month}`;
+    map.set(key, r);
+  });
+
+  incoming.forEach((r) => {
+    const key = r.dayString
+      ? `${r.country.toLowerCase()}_d_${r.dayString}`
+      : `${r.country.toLowerCase()}_m_${r.month}`;
+    map.set(key, r);
+  });
+
+  return Array.from(map.values());
+}
+
+export function upsertDateRecords(
+  base: NormalizedDateRecord[],
+  incoming: NormalizedDateRecord[]
+): NormalizedDateRecord[] {
+  if (!incoming || incoming.length === 0) return base;
+
+  const map = new Map<string, NormalizedDateRecord>();
+  base.forEach((d) => map.set(d.dayString, d));
+
+  incoming.forEach((d) => {
+    const existing = map.get(d.dayString);
+    if (existing) {
+      existing.pageview = d.pageview !== null ? d.pageview : existing.pageview;
+      existing.kpiTarget = d.kpiTarget > 0 ? d.kpiTarget : existing.kpiTarget;
+      if (d.canRunAdsPv !== undefined && d.canRunAdsPv !== null) {
+        existing.canRunAdsPv = d.canRunAdsPv;
+      }
+      if (d.blockAdsPv !== undefined && d.blockAdsPv !== null) {
+        existing.blockAdsPv = d.blockAdsPv;
+      }
+      if (d.blockRate !== undefined && d.blockRate !== null) {
+        existing.blockRate = d.blockRate;
+      }
+      map.set(d.dayString, existing);
+    } else {
+      map.set(d.dayString, d);
+    }
+  });
+
+  return Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export function upsertFolderRecords(
+  base: NormalizedFolderRecord[],
+  incoming: NormalizedFolderRecord[]
+): NormalizedFolderRecord[] {
+  if (!incoming || incoming.length === 0) return base;
+
+  const map = new Map<string, NormalizedFolderRecord>();
+  base.forEach((f) => {
+    const key = `${f.folder.toLowerCase()}_m_${f.month}`;
+    map.set(key, f);
+  });
+
+  incoming.forEach((f) => {
+    const key = `${f.folder.toLowerCase()}_m_${f.month}`;
+    map.set(key, f);
+  });
+
+  return Array.from(map.values());
+}
+
+/**
+ * Effective country records deduplication:
+ * If a country has daily records in month m, use daily records so daily granularity is preserved.
+ * Otherwise, use the monthly record.
+ */
+export function getEffectiveCountryRecordsForMonth(m: number): NormalizedCountryRecord[] {
+  const mRecords = countryRecords.filter((r) => r.month === m);
+  const countriesWithDaily = new Set(
+    mRecords.filter((r) => !!r.dayString).map((r) => r.country.toLowerCase())
+  );
+  return mRecords.filter((r) => {
+    if (countriesWithDaily.has(r.country.toLowerCase())) {
+      return !!r.dayString;
+    }
+    return true;
+  });
+}
+
+/**
+ * In-memory state holding the parsed records with localStorage persistence fallback & auto-healing
  */
 function getInitialFolderRecords(): NormalizedFolderRecord[] {
+  const base = parseFolderCsv(RAW_FOLDER_CSV);
   try {
     const saved = localStorage.getItem('vnexpress_uploaded_folder_csv');
     if (saved) {
       const parsed = parseFolderCsv(saved);
-      if (parsed.length > 0) return parsed;
+      const totalPv = parsed.reduce((acc, r) => acc + r.pvs, 0);
+      if (totalPv > 0) {
+        return upsertFolderRecords(base, parsed);
+      } else {
+        localStorage.removeItem('vnexpress_uploaded_folder_csv');
+      }
     }
   } catch {}
-  return parseFolderCsv(RAW_FOLDER_CSV);
+  return base;
 }
 
 function getInitialCountryRecords(): NormalizedCountryRecord[] {
+  const base = parseCountryCsv(RAW_COUNTRY_CSV);
   try {
     const saved = localStorage.getItem('vnexpress_uploaded_country_csv');
     if (saved) {
       const parsed = parseCountryCsv(saved);
-      if (parsed.length > 0) return parsed;
+      const totalPv = parsed.reduce((acc, r) => acc + r.pvs, 0);
+      if (totalPv > 0) {
+        return upsertCountryRecords(base, parsed);
+      } else {
+        // Auto-heal corrupt local storage
+        localStorage.removeItem('vnexpress_uploaded_country_csv');
+      }
     }
   } catch {}
-  return parseCountryCsv(RAW_COUNTRY_CSV);
+  return base;
 }
 
 function getInitialDateRecords(): NormalizedDateRecord[] {
+  const base = parseDateCsv(RAW_DATE_CSV);
   try {
     const saved = localStorage.getItem('vnexpress_uploaded_date_csv');
     if (saved) {
       const parsed = parseDateCsv(saved);
-      if (parsed.length > 0) return parsed;
+      if (parsed.length > 0) {
+        return upsertDateRecords(base, parsed);
+      }
     }
   } catch {}
-  return parseDateCsv(RAW_DATE_CSV);
+  return base;
 }
 
 let folderRecords = getInitialFolderRecords();
@@ -967,38 +1242,41 @@ export function analyzeCsvContent(csvContent: string, fileName?: string): Detect
 export function updateFolderDataset(csv: string) {
   const parsed = parseFolderCsv(csv);
   if (parsed.length > 0) {
-    folderRecords = parsed;
+    const base = parseFolderCsv(RAW_FOLDER_CSV);
+    folderRecords = upsertFolderRecords(base, parsed);
     try {
       localStorage.setItem('vnexpress_uploaded_folder_csv', csv);
     } catch {}
     lastRefreshTime = new Date();
-    dataSourceInfo = `Dữ liệu chuyên mục cập nhật từ file CSV tải lên (${parsed.length} dòng)`;
+    dataSourceInfo = `Dữ liệu chuyên mục cập nhật thành công (${parsed.length} dòng cập nhật / ${folderRecords.length} dòng tổng)`;
   }
 }
 
 export function updateCountryDataset(csv: string) {
   const parsed = parseCountryCsv(csv);
   if (parsed.length > 0) {
-    countryRecords = parsed;
+    const base = parseCountryCsv(RAW_COUNTRY_CSV);
+    countryRecords = upsertCountryRecords(base, parsed);
     try {
       localStorage.setItem('vnexpress_uploaded_country_csv', csv);
     } catch {}
     syncDateRecordsWithDailyCountryData();
     lastRefreshTime = new Date();
-    dataSourceInfo = `Dữ liệu thị trường cập nhật từ file CSV tải lên (${parsed.length} dòng)`;
+    dataSourceInfo = `Dữ liệu thị trường cập nhật thành công (${parsed.length} dòng cập nhật / ${countryRecords.length} dòng tổng)`;
   }
 }
 
 export function updateDateDataset(csv: string) {
   const parsed = parseDateCsv(csv);
   if (parsed.length > 0) {
-    dateRecords = parsed;
+    const base = parseDateCsv(RAW_DATE_CSV);
+    dateRecords = upsertDateRecords(base, parsed);
     try {
       localStorage.setItem('vnexpress_uploaded_date_csv', csv);
     } catch {}
     syncDateRecordsWithDailyCountryData();
     lastRefreshTime = new Date();
-    dataSourceInfo = `Dữ liệu ngày cập nhật từ file CSV tải lên (${parsed.length} ngày)`;
+    dataSourceInfo = `Dữ liệu ngày cập nhật thành công (${parsed.length} ngày cập nhật / ${dateRecords.length} ngày tổng)`;
   }
 }
 
@@ -1008,15 +1286,12 @@ export function updateAllDatasets(datasets: {
   dateCsv?: string;
 }) {
   let updatedCount = 0;
-  let folderRows = folderRecords.length;
-  let countryRows = countryRecords.length;
-  let dateRows = dateRecords.length;
 
   if (datasets.folderCsv && datasets.folderCsv.trim()) {
     const parsed = parseFolderCsv(datasets.folderCsv);
     if (parsed.length > 0) {
-      folderRecords = parsed;
-      folderRows = parsed.length;
+      const base = parseFolderCsv(RAW_FOLDER_CSV);
+      folderRecords = upsertFolderRecords(base, parsed);
       updatedCount++;
       try {
         localStorage.setItem('vnexpress_uploaded_folder_csv', datasets.folderCsv);
@@ -1027,8 +1302,8 @@ export function updateAllDatasets(datasets: {
   if (datasets.countryCsv && datasets.countryCsv.trim()) {
     const parsed = parseCountryCsv(datasets.countryCsv);
     if (parsed.length > 0) {
-      countryRecords = parsed;
-      countryRows = parsed.length;
+      const base = parseCountryCsv(RAW_COUNTRY_CSV);
+      countryRecords = upsertCountryRecords(base, parsed);
       updatedCount++;
       try {
         localStorage.setItem('vnexpress_uploaded_country_csv', datasets.countryCsv);
@@ -1039,8 +1314,8 @@ export function updateAllDatasets(datasets: {
   if (datasets.dateCsv && datasets.dateCsv.trim()) {
     const parsed = parseDateCsv(datasets.dateCsv);
     if (parsed.length > 0) {
-      dateRecords = parsed;
-      dateRows = parsed.length;
+      const base = parseDateCsv(RAW_DATE_CSV);
+      dateRecords = upsertDateRecords(base, parsed);
       updatedCount++;
       try {
         localStorage.setItem('vnexpress_uploaded_date_csv', datasets.dateCsv);
@@ -1050,6 +1325,9 @@ export function updateAllDatasets(datasets: {
 
   syncDateRecordsWithDailyCountryData();
   lastRefreshTime = new Date();
+  const folderRows = folderRecords.length;
+  const countryRows = countryRecords.length;
+  const dateRows = dateRecords.length;
   dataSourceInfo = `Dữ liệu cập nhật từ ${updatedCount} file CSV mới (${folderRows} dòng Chuyên mục, ${countryRows} dòng Thị trường, ${dateRows} ngày KPI)`;
 
   return {
@@ -1886,8 +2164,16 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
 
   // Monthly / All-time / MTD aggregated calculation from Folder data (canonical for Can Run Ads & Block)
   const currentFolders = folderRecords.filter((r) => activeMonths.includes(r.month));
-  const totalPageviews = currentFolders.reduce((acc, r) => acc + r.pvs, 0);
-  const canRunAdsPv = currentFolders.reduce((acc, r) => acc + r.pvsRunAds, 0);
+  let totalPageviews = currentFolders.reduce((acc, r) => acc + r.pvs, 0);
+  let canRunAdsPv = currentFolders.reduce((acc, r) => acc + r.pvsRunAds, 0);
+
+  // If folder records are empty or have 0 PV for active months, fall back to country records
+  if (totalPageviews === 0) {
+    const countryRecs = activeMonths.flatMap((m) => getEffectiveCountryRecordsForMonth(m));
+    totalPageviews = countryRecs.reduce((acc, r) => acc + r.pvs, 0);
+    canRunAdsPv = countryRecs.reduce((acc, r) => acc + r.pvsRunAds, 0);
+  }
+
   const blockAdsPv = Math.max(0, totalPageviews - canRunAdsPv);
   const blockRate = totalPageviews > 0 ? (blockAdsPv / totalPageviews) * 100 : 0;
   const canRunAdsRate = totalPageviews > 0 ? (canRunAdsPv / totalPageviews) * 100 : 0;
@@ -1913,8 +2199,15 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
   }
 
   const prevFolders = folderRecords.filter((r) => prevMonths.includes(r.month));
-  const prevTotalPv = prevFolders.reduce((acc, r) => acc + r.pvs, 0);
-  const prevCanRunAds = prevFolders.reduce((acc, r) => acc + r.pvsRunAds, 0);
+  let prevTotalPv = prevFolders.reduce((acc, r) => acc + r.pvs, 0);
+  let prevCanRunAds = prevFolders.reduce((acc, r) => acc + r.pvsRunAds, 0);
+
+  if (prevTotalPv === 0) {
+    const prevCountryRecs = prevMonths.flatMap((m) => getEffectiveCountryRecordsForMonth(m));
+    prevTotalPv = prevCountryRecs.reduce((acc, r) => acc + r.pvs, 0);
+    prevCanRunAds = prevCountryRecs.reduce((acc, r) => acc + r.pvsRunAds, 0);
+  }
+
   const prevBlockAds = Math.max(0, prevTotalPv - prevCanRunAds);
   const prevBlockRate = prevTotalPv > 0 ? (prevBlockAds / prevTotalPv) * 100 : 0;
 
@@ -1955,11 +2248,15 @@ export function calculateSampleAllocation(
   targetAllocations: Record<string, number>,
   selectedMonth: number | 'all' | number[]
 ): SampleAllocationRow[] {
-  const records = Array.isArray(selectedMonth)
-    ? countryRecords.filter((r) => selectedMonth.includes(r.month))
-    : selectedMonth === 'all'
-    ? countryRecords
-    : countryRecords.filter((r) => r.month === Number(selectedMonth));
+  let records: NormalizedCountryRecord[] = [];
+  if (Array.isArray(selectedMonth)) {
+    records = selectedMonth.flatMap((m) => getEffectiveCountryRecordsForMonth(m));
+  } else if (selectedMonth === 'all') {
+    const allMonths = getAvailableMonths();
+    records = allMonths.flatMap((m) => getEffectiveCountryRecordsForMonth(m));
+  } else {
+    records = getEffectiveCountryRecordsForMonth(Number(selectedMonth));
+  }
 
   const totalPv = records.reduce((acc, r) => acc + r.pvs, 0);
   const countryPvMap = new Map<string, number>();
@@ -2008,11 +2305,15 @@ export function calculateSampleAllocation(
 export function calculateMarketPerformance(
   selectedMonth: number | 'all' | number[]
 ): MarketPerformanceRow[] {
-  const records = Array.isArray(selectedMonth)
-    ? countryRecords.filter((r) => selectedMonth.includes(r.month))
-    : selectedMonth === 'all'
-    ? countryRecords
-    : countryRecords.filter((r) => r.month === Number(selectedMonth));
+  let records: NormalizedCountryRecord[] = [];
+  if (Array.isArray(selectedMonth)) {
+    records = selectedMonth.flatMap((m) => getEffectiveCountryRecordsForMonth(m));
+  } else if (selectedMonth === 'all') {
+    const allMonths = getAvailableMonths();
+    records = allMonths.flatMap((m) => getEffectiveCountryRecordsForMonth(m));
+  } else {
+    records = getEffectiveCountryRecordsForMonth(Number(selectedMonth));
+  }
 
   const totalBlockAll = records.reduce((acc, r) => acc + r.blockAds, 0);
 
@@ -2042,8 +2343,8 @@ export function calculateMarketPerformance(
 
   // Calculate MoM if single month selected
   const prevMonthMap = new Map<string, number>();
-  if (selectedMonth !== 'all' && Number(selectedMonth) > 1) {
-    const prevRecords = countryRecords.filter((r) => r.month === Number(selectedMonth) - 1);
+  if (selectedMonth !== 'all' && !Array.isArray(selectedMonth) && Number(selectedMonth) > 1) {
+    const prevRecords = getEffectiveCountryRecordsForMonth(Number(selectedMonth) - 1);
     prevRecords.forEach((r) => {
       prevMonthMap.set(r.country, (prevMonthMap.get(r.country) || 0) + r.pvsRunAds);
     });
@@ -2521,7 +2822,7 @@ export function getBaselineAndJapanMonthlyKpis(selectedMonth: number | 'all' = '
   };
 
   const baselinePoints: MonthlyKpiPoint[] = months.map((m, idx) => {
-    const monthRecords = countryRecords.filter((r) => r.month === m);
+    const monthRecords = getEffectiveCountryRecordsForMonth(m);
     const totalPv = monthRecords.reduce((acc, r) => acc + r.pvs, 0);
     const canRunAdsPv = monthRecords.reduce((acc, r) => acc + r.pvsRunAds, 0);
     const blockAdsPv = Math.max(0, totalPv - canRunAdsPv);
@@ -2534,7 +2835,7 @@ export function getBaselineAndJapanMonthlyKpis(selectedMonth: number | 'all' = '
 
     if (idx > 0) {
       const prevMonth = months[idx - 1];
-      const prevRecords = countryRecords.filter((r) => r.month === prevMonth);
+      const prevRecords = getEffectiveCountryRecordsForMonth(prevMonth);
       const prevTotalPv = prevRecords.reduce((acc, r) => acc + r.pvs, 0);
       const prevCanRunAds = prevRecords.reduce((acc, r) => acc + r.pvsRunAds, 0);
       const prevBlockAds = Math.max(0, prevTotalPv - prevCanRunAds);
@@ -2578,8 +2879,8 @@ export function getBaselineAndJapanMonthlyKpis(selectedMonth: number | 'all' = '
   };
 
   const japanPoints: MonthlyKpiPoint[] = months.map((m, idx) => {
-    const monthRecords = countryRecords.filter(
-      (r) => r.month === m && r.country.toLowerCase() === 'japan'
+    const monthRecords = getEffectiveCountryRecordsForMonth(m).filter(
+      (r) => r.country.toLowerCase() === 'japan'
     );
     const totalPv = monthRecords.reduce((acc, r) => acc + r.pvs, 0);
     const canRunAdsPv = monthRecords.reduce((acc, r) => acc + r.pvsRunAds, 0);
@@ -2593,8 +2894,8 @@ export function getBaselineAndJapanMonthlyKpis(selectedMonth: number | 'all' = '
 
     if (idx > 0) {
       const prevMonth = months[idx - 1];
-      const prevRecords = countryRecords.filter(
-        (r) => r.month === prevMonth && r.country.toLowerCase() === 'japan'
+      const prevRecords = getEffectiveCountryRecordsForMonth(prevMonth).filter(
+        (r) => r.country.toLowerCase() === 'japan'
       );
       const prevTotalPv = prevRecords.reduce((acc, r) => acc + r.pvs, 0);
       const prevCanRunAds = prevRecords.reduce((acc, r) => acc + r.pvsRunAds, 0);
@@ -2630,13 +2931,62 @@ export function getBaselineAndJapanMonthlyKpis(selectedMonth: number | 'all' = '
     };
   });
 
-  const activeBaselinePoint =
-    baselinePoints.find((p) => p.month === activeMonthNumber) ||
-    baselinePoints[baselinePoints.length - 1];
+  let activeBaselinePoint: MonthlyKpiPoint;
+  let activeJapanPoint: MonthlyKpiPoint;
 
-  const activeJapanPoint =
-    japanPoints.find((p) => p.month === activeMonthNumber) ||
-    japanPoints[japanPoints.length - 1];
+  if (selectedMonth === 'all') {
+    const totalAllPv = baselinePoints.reduce((acc, p) => acc + p.totalPv, 0);
+    const totalAllCanRun = baselinePoints.reduce((acc, p) => acc + p.canRunAdsPv, 0);
+    const totalAllBlock = baselinePoints.reduce((acc, p) => acc + p.blockAdsPv, 0);
+    const allBlockRate = totalAllPv > 0 ? (totalAllBlock / totalAllPv) * 100 : 0;
+    const vsBaselineDiffPp = allBlockRate - baselineSpec.baselineBlockRate;
+
+    activeBaselinePoint = {
+      month: 0,
+      monthLabel: 'Toàn kỳ (T1 - T9)',
+      totalPv: totalAllPv,
+      canRunAdsPv: totalAllCanRun,
+      blockAdsPv: totalAllBlock,
+      blockRate: allBlockRate,
+      momBlockRateDiffPp: null,
+      isBlockRateIncreased: null,
+      momRunAdsDiffPct: null,
+      isRunAdsIncreased: null,
+      vsBaselineDiffPp,
+      isTargetMet10: allBlockRate <= baselineSpec.targetBlockRate10,
+      isTargetMet15: allBlockRate <= baselineSpec.targetBlockRate15,
+    };
+
+    const jpTotalPv = japanPoints.reduce((acc, p) => acc + p.totalPv, 0);
+    const jpTotalCanRun = japanPoints.reduce((acc, p) => acc + p.canRunAdsPv, 0);
+    const jpTotalBlock = japanPoints.reduce((acc, p) => acc + p.blockAdsPv, 0);
+    const jpBlockRate = jpTotalPv > 0 ? (jpTotalBlock / jpTotalPv) * 100 : 0;
+    const jpVsBaselineDiff = jpBlockRate - jpSpec.blockRateBaseline;
+
+    activeJapanPoint = {
+      month: 0,
+      monthLabel: 'Toàn kỳ Nhật Bản (T1 - T9)',
+      totalPv: jpTotalPv,
+      canRunAdsPv: jpTotalCanRun,
+      blockAdsPv: jpTotalBlock,
+      blockRate: jpBlockRate,
+      momBlockRateDiffPp: null,
+      isBlockRateIncreased: null,
+      momRunAdsDiffPct: null,
+      isRunAdsIncreased: null,
+      vsBaselineDiffPp: jpVsBaselineDiff,
+      isTargetMet10: jpBlockRate <= jpSpec.targetBlockRate10,
+      isTargetMet15: jpBlockRate <= jpSpec.targetBlockRate15,
+    };
+  } else {
+    activeBaselinePoint =
+      baselinePoints.find((p) => p.month === activeMonthNumber) ||
+      baselinePoints[baselinePoints.length - 1];
+
+    activeJapanPoint =
+      japanPoints.find((p) => p.month === activeMonthNumber) ||
+      japanPoints[japanPoints.length - 1];
+  }
 
   // Comparisons
   const activeMonthIdx = months.indexOf(activeMonthNumber);

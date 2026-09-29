@@ -349,6 +349,7 @@ export default function App() {
           <PrimaryMonthlyKpiPilotSection
             selectedMonth={filters.selectedMonth}
             activeMarket={filters.market}
+            dataVersion={dataVersion}
             onSelectMonth={(m) =>
               setFilters((prev) => ({
                 ...prev,
