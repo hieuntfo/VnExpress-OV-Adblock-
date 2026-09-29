@@ -72,9 +72,9 @@ const DATASET_CONFIG: Record<
     icon: <Globe2 className="h-4 w-4 text-blue-600" />,
     color: 'blue',
     bgBadge: 'bg-blue-50 text-blue-700 border-blue-200',
-    requiredCols: ['Country', 'month', 'Pvs', 'Pvs run ads'],
-    description: 'Dữ liệu phân bổ theo 10 thị trường trọng điểm (Úc, Mỹ, Nhật,...) theo tháng.',
-    exampleFilename: 'country.csv, thi_truong.csv',
+    requiredCols: ['Country', 'Pvs', 'Pvs run ads', '(Date hoặc month)'],
+    description: 'Hỗ trợ cả file theo ngày (Date, Country, Pvs, Pvs run ads) và file theo tháng (Country, month, Pvs, Pvs run ads).',
+    exampleFilename: 'Pageview by country.csv, country.csv',
   },
   folder: {
     title: 'Folder (Chuyên mục Nội dung)',

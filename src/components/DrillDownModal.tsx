@@ -138,16 +138,86 @@ export const DrillDownModal: React.FC<DrillDownModalProps> = ({
                 </div>
               </div>
 
-              {/* Data Grain Notice */}
-              <div className="p-3.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong>Lưu ý về tính toán Block Ads theo ngày:</strong>
-                  <p className="mt-0.5 leading-relaxed text-amber-800">
-                    Theo quy tắc bảo toàn dữ liệu, tập tin `date.csv` của VnExpress hiện chỉ ghi nhận trường `Pageview` thực tế và `KPI Target`, chưa có cột log `Block Ads` riêng lẻ theo ngày. Số liệu Block Ads được phân tích chính xác tuyệt đối theo chiều hạt Tháng tại bảng Folder và Market.
-                  </p>
-                </div>
-              </div>
+              {/* Check if daily country records exist for this day */}
+              {(() => {
+                const dayCountries = allCountries.filter(
+                  (c) => c.dayString === modalState.data.dayString
+                );
+                if (dayCountries.length > 0) {
+                  const sorted = [...dayCountries].sort((a, b) => b.pvs - a.pvs);
+                  const totalDayPv = sorted.reduce((acc, c) => acc + c.pvs, 0);
+                  const totalDayCanRun = sorted.reduce((acc, c) => acc + c.pvsRunAds, 0);
+                  const totalDayBlock = sorted.reduce((acc, c) => acc + c.blockAds, 0);
+                  const totalDayBlockRate = totalDayPv > 0 ? (totalDayBlock / totalDayPv) * 100 : 0;
+
+                  return (
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Globe2 className="h-4 w-4 text-blue-600" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                            Phân rã theo Thị trường ngày {modalState.data.dayString} ({sorted.length} quốc gia)
+                          </h4>
+                        </div>
+                        <span className="text-xs font-bold text-slate-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                          Tỷ lệ chặn toàn cầu ngày này: <strong>{totalDayBlockRate.toFixed(2)}%</strong>
+                        </span>
+                      </div>
+
+                      <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                            <tr>
+                              <th className="py-2 px-3">Quốc gia</th>
+                              <th className="py-2 px-3 text-right">Tổng PV</th>
+                              <th className="py-2 px-3 text-right">Lượt chạy Ads</th>
+                              <th className="py-2 px-3 text-right">Bị chặn (Block)</th>
+                              <th className="py-2 px-3 text-right">Tỷ lệ chặn</th>
+                              <th className="py-2 px-3 text-right">Tỷ lệ chạy Ads</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-mono">
+                            {sorted.map((c) => (
+                              <tr key={c.id} className="hover:bg-slate-50">
+                                <td className="py-2 px-3 font-sans font-semibold text-slate-800">
+                                  {c.country}
+                                </td>
+                                <td className="py-2 px-3 text-right font-medium text-slate-900">
+                                  {formatNumber(c.pvs)}
+                                </td>
+                                <td className="py-2 px-3 text-right font-medium text-emerald-700">
+                                  {formatNumber(c.pvsRunAds)}
+                                </td>
+                                <td className="py-2 px-3 text-right font-medium text-rose-700">
+                                  {formatNumber(c.blockAds)}
+                                </td>
+                                <td className="py-2 px-3 text-right font-bold text-slate-900">
+                                  {c.blockRate.toFixed(2)}%
+                                </td>
+                                <td className="py-2 px-3 text-right font-bold text-emerald-700">
+                                  {c.canRunAdsRate.toFixed(2)}%
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="p-3.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong>Lưu ý về dữ liệu ngày này:</strong>
+                      <p className="mt-0.5 leading-relaxed text-amber-800">
+                        Chưa có bản ghi phân rã chi tiết từng quốc gia cho ngày {modalState.data.dayString}. Bạn có thể tải file CSV Quốc gia theo ngày vào hệ thống để kiểm tra chi tiết từng ngày chuẩn xác.
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

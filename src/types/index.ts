@@ -12,7 +12,9 @@ export interface RawFolderRecord {
 
 export interface RawCountryRecord {
   Country: string;
-  month: string | number;
+  month?: string | number;
+  Date?: string;
+  Day?: string;
   Pvs: string | number;
   'Pvs run ads': string | number;
 }
@@ -39,6 +41,8 @@ export interface NormalizedCountryRecord {
   id: string;
   country: string;
   month: number;
+  year?: number;
+  dayString?: string; // "YYYY-MM-DD" if daily record
   pvs: number;
   pvsRunAds: number;
   blockAds: number;
