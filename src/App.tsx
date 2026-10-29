@@ -40,6 +40,7 @@ import { DataQualityModal } from './components/DataQualityModal';
 import { MetricFormulaModal, MetricKey } from './components/MetricFormulaModal';
 import { TechOrderSpecModal } from './components/TechOrderSpecModal';
 import { PrimaryMonthlyKpiPilotSection } from './components/PrimaryMonthlyKpiPilotSection';
+import { PilotCommandCenter } from './components/PilotCommandCenter';
 import {
   LayoutDashboard,
   Calendar,
@@ -126,7 +127,10 @@ export default function App() {
   const [isTechSpecModalOpen, setIsTechSpecModalOpen] = useState(false);
   const [formulaModalMetric, setFormulaModalMetric] = useState<MetricKey | null>(null);
 
-  // Active view tab for clean executive navigation
+  // Top-level Navigation Mode: 'pilot' (Default - Japan & Australia) vs 'tower' (Full OV Control Tower)
+  const [mainView, setMainView] = useState<'pilot' | 'tower'>('pilot');
+
+  // Active view tab for clean executive navigation (within Tower view)
   const [activeTab, setActiveTab] = useState<
     'all' | 'daily' | 'trends' | 'markets' | 'composition' | 'briefing'
   >('all');
@@ -334,15 +338,83 @@ export default function App() {
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 space-y-5">
-        {/* Global Filter Bar */}
-        <FilterBar
-          filter={filters}
-          onChangeFilter={setFilters}
-          uniqueMarkets={normalizedData.uniqueCountries}
-          uniqueFolders={normalizedData.uniqueFolders}
-          availableMonths={normalizedData.availableMonths}
-          grainNotice={summary.grainNotice || null}
-        />
+        {/* Top Segmented Mode Switcher: Pilot Command Center (Default) vs Full Tower */}
+        <div className="bg-white border border-slate-200/90 rounded-xl p-2 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-lg w-full md:w-auto">
+            <button
+              type="button"
+              onClick={() => setMainView('pilot')}
+              className={`flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                mainView === 'pilot'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200 font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <span className="flex h-2.5 w-2.5 relative shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600" />
+              </span>
+              <span>🎯 Trung Tâm Thí Điểm: Nhật Bản & Úc</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-red-50 text-red-700 border border-red-200 font-bold uppercase tracking-wider">
+                Mục Tiêu Số 1
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMainView('tower')}
+              className={`flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                mainView === 'tower'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200 font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <LayoutDashboard className="h-3.5 w-3.5 text-slate-600" />
+              <span>🌐 Tháp Điều Khiển Toàn Diện (Full OV Control Tower)</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2.5 text-xs text-slate-500 px-1">
+            <span className="text-slate-400 hidden lg:inline">Thị trường chiến lược:</span>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-semibold">
+                🇯🇵 Nhật Bản: Baseline 16.06%
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-800 text-[11px] font-semibold">
+                🇦🇺 Úc: Baseline 15.26%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* View 1: Specialized Pilot Command Center (Default View) */}
+        {mainView === 'pilot' ? (
+          <PilotCommandCenter
+            selectedMonth={filters.selectedMonth}
+            dataVersion={dataVersion}
+            onSelectMonth={(m) =>
+              setFilters((prev) => ({
+                ...prev,
+                timeMode: 'month',
+                selectedMonth: m,
+              }))
+            }
+            onOpenUploadModal={() => setIsUploadOpen(true)}
+            onOpenTechDoc={() => setIsTechSpecModalOpen(true)}
+            onSwitchToFullOverview={() => setMainView('tower')}
+          />
+        ) : (
+          /* View 2: Full Control Tower with 15 Markets, Folders, Daily & Cumulative Charts */
+          <>
+            {/* Global Filter Bar */}
+            <FilterBar
+              filter={filters}
+              onChangeFilter={setFilters}
+              uniqueMarkets={normalizedData.uniqueCountries}
+              uniqueFolders={normalizedData.uniqueFolders}
+              availableMonths={normalizedData.availableMonths}
+              grainNotice={summary.grainNotice || null}
+            />
 
         {/* THÔNG TIN CHÍNH: 1/ KPI theo tháng của Baseline & 2/ KPI của Nhật Bản theo tháng (Thí điểm) */}
         <section id="primary-pilot-kpi" aria-label="Thông tin chính KPI Baseline và Thí điểm Nhật Bản">
@@ -551,6 +623,8 @@ export default function App() {
           <section id="data-quality" aria-label="Giám sát chất lượng dữ liệu">
             <DataQualityMonitor audit={audit} />
           </section>
+        )}
+          </>
         )}
       </main>
 

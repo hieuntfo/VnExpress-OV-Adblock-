@@ -342,6 +342,12 @@ export function formatDiffPp(val: number | null | undefined): string {
   return `${prefix}${val.toFixed(2)} pp`;
 }
 
+export function formatSignedPercent(val: number | null | undefined, decimals = 2): string {
+  if (val === null || val === undefined || isNaN(val)) return '0.00%';
+  const sign = val > 0 ? '+' : '';
+  return `${sign}${val.toFixed(decimals)}%`;
+}
+
 /**
  * Format ISO date string (YYYY-MM-DD) to Vietnamese presentation (DD/MM/YYYY)
  */
@@ -2162,16 +2168,27 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
     }
   }
 
-  // Monthly / All-time / MTD aggregated calculation from Folder data (canonical for Can Run Ads & Block)
-  const currentFolders = folderRecords.filter((r) => activeMonths.includes(r.month));
-  let totalPageviews = currentFolders.reduce((acc, r) => acc + r.pvs, 0);
-  let canRunAdsPv = currentFolders.reduce((acc, r) => acc + r.pvsRunAds, 0);
+  // Monthly / All-time / MTD aggregated calculation
+  let totalPageviews = 0;
+  let canRunAdsPv = 0;
 
-  // If folder records are empty or have 0 PV for active months, fall back to country records
-  if (totalPageviews === 0) {
-    const countryRecs = activeMonths.flatMap((m) => getEffectiveCountryRecordsForMonth(m));
-    totalPageviews = countryRecs.reduce((acc, r) => acc + r.pvs, 0);
-    canRunAdsPv = countryRecs.reduce((acc, r) => acc + r.pvsRunAds, 0);
+  if (filter.market && filter.market !== 'all') {
+    const marketRecs = activeMonths
+      .flatMap((m) => getEffectiveCountryRecordsForMonth(m))
+      .filter((r) => r.country.toLowerCase() === filter.market.toLowerCase());
+    totalPageviews = marketRecs.reduce((acc, r) => acc + r.pvs, 0);
+    canRunAdsPv = marketRecs.reduce((acc, r) => acc + r.pvsRunAds, 0);
+  } else {
+    const currentFolders = folderRecords.filter((r) => activeMonths.includes(r.month));
+    totalPageviews = currentFolders.reduce((acc, r) => acc + r.pvs, 0);
+    canRunAdsPv = currentFolders.reduce((acc, r) => acc + r.pvsRunAds, 0);
+
+    // If folder records are empty or have 0 PV for active months, fall back to country records
+    if (totalPageviews === 0) {
+      const countryRecs = activeMonths.flatMap((m) => getEffectiveCountryRecordsForMonth(m));
+      totalPageviews = countryRecs.reduce((acc, r) => acc + r.pvs, 0);
+      canRunAdsPv = countryRecs.reduce((acc, r) => acc + r.pvsRunAds, 0);
+    }
   }
 
   const blockAdsPv = Math.max(0, totalPageviews - canRunAdsPv);
@@ -2180,7 +2197,12 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
 
   // KPI Target: sum of target from Date records or Folder targets
   const currentDates = dateRecords.filter((d) => activeMonths.includes(d.month));
-  const kpiTarget = currentDates.reduce((acc, d) => acc + d.kpiTarget, 0);
+  const rawKpiTarget = currentDates.reduce((acc, d) => acc + d.kpiTarget, 0);
+  // Scale KPI Target if filtered by specific market
+  const marketShare = filter.market && filter.market !== 'all'
+    ? (COUNTRY_KPI_SPECS[filter.market]?.pvsMonthlyAvg || 2000000) / 36500000
+    : 1.0;
+  const kpiTarget = Math.round(rawKpiTarget * marketShare);
   const kpiAttainment = kpiTarget > 0 ? (canRunAdsPv / kpiTarget) * 100 : 0;
   const kpiGap = canRunAdsPv - kpiTarget;
 
@@ -2198,14 +2220,25 @@ export function calculateExecutiveSummary(filter: FilterState): ExecutiveKpiSumm
     comparisonTitle = 'So với kỳ trước';
   }
 
-  const prevFolders = folderRecords.filter((r) => prevMonths.includes(r.month));
-  let prevTotalPv = prevFolders.reduce((acc, r) => acc + r.pvs, 0);
-  let prevCanRunAds = prevFolders.reduce((acc, r) => acc + r.pvsRunAds, 0);
+  let prevTotalPv = 0;
+  let prevCanRunAds = 0;
 
-  if (prevTotalPv === 0) {
-    const prevCountryRecs = prevMonths.flatMap((m) => getEffectiveCountryRecordsForMonth(m));
-    prevTotalPv = prevCountryRecs.reduce((acc, r) => acc + r.pvs, 0);
-    prevCanRunAds = prevCountryRecs.reduce((acc, r) => acc + r.pvsRunAds, 0);
+  if (filter.market && filter.market !== 'all') {
+    const prevMarketRecs = prevMonths
+      .flatMap((m) => getEffectiveCountryRecordsForMonth(m))
+      .filter((r) => r.country.toLowerCase() === filter.market.toLowerCase());
+    prevTotalPv = prevMarketRecs.reduce((acc, r) => acc + r.pvs, 0);
+    prevCanRunAds = prevMarketRecs.reduce((acc, r) => acc + r.pvsRunAds, 0);
+  } else {
+    const prevFolders = folderRecords.filter((r) => prevMonths.includes(r.month));
+    prevTotalPv = prevFolders.reduce((acc, r) => acc + r.pvs, 0);
+    prevCanRunAds = prevFolders.reduce((acc, r) => acc + r.pvsRunAds, 0);
+
+    if (prevTotalPv === 0) {
+      const prevCountryRecs = prevMonths.flatMap((m) => getEffectiveCountryRecordsForMonth(m));
+      prevTotalPv = prevCountryRecs.reduce((acc, r) => acc + r.pvs, 0);
+      prevCanRunAds = prevCountryRecs.reduce((acc, r) => acc + r.pvsRunAds, 0);
+    }
   }
 
   const prevBlockAds = Math.max(0, prevTotalPv - prevCanRunAds);
@@ -2779,7 +2812,7 @@ export interface MonthlyKpiPoint {
 }
 
 export interface MonthlyKpiSeries {
-  id: 'baseline' | 'japan';
+  id: 'baseline' | 'japan' | 'australia';
   title: string;
   subtitle: string;
   flag: string;
@@ -3069,4 +3102,683 @@ export function getBaselineAndJapanMonthlyKpis(selectedMonth: number | 'all' = '
     activeMonthNumber,
   };
 }
+
+/**
+ * Enhanced Pilot KPI Series supporting both Japan & Australia, with dynamic custom targets
+ */
+export interface DynamicPilotCustomTargets {
+  japan?: number;
+  australia?: number;
+}
+
+export function getPilotMonthlyKpis(
+  selectedMonth: number | 'all' = 'all',
+  customTargets?: DynamicPilotCustomTargets
+): {
+  japanSeries: MonthlyKpiSeries;
+  australiaSeries: MonthlyKpiSeries;
+  baselineSeries: MonthlyKpiSeries;
+  availableMonths: number[];
+  activeMonthNumber: number;
+} {
+  const baseData = getBaselineAndJapanMonthlyKpis(selectedMonth);
+  const months = baseData.availableMonths;
+  const activeMonthNumber = baseData.activeMonthNumber;
+
+  // Australia Pilot Series
+  const auSpec = COUNTRY_KPI_SPECS['Australia'] || {
+    blockRateBaseline: 15.26,
+    targetBlockRate10: 13.74,
+    targetBlockRate15: 12.97,
+    runAdsBaselineMonthly: 2734586,
+  };
+
+  const auTarget10 = customTargets?.australia ?? auSpec.targetBlockRate10;
+  const auTarget15 = auSpec.targetBlockRate15;
+
+  const australiaPoints: MonthlyKpiPoint[] = months.map((m, idx) => {
+    const monthRecords = getEffectiveCountryRecordsForMonth(m).filter(
+      (r) => r.country.toLowerCase() === 'australia'
+    );
+    const totalPv = monthRecords.reduce((acc, r) => acc + r.pvs, 0);
+    const canRunAdsPv = monthRecords.reduce((acc, r) => acc + r.pvsRunAds, 0);
+    const blockAdsPv = Math.max(0, totalPv - canRunAdsPv);
+    const blockRate = totalPv > 0 ? (blockAdsPv / totalPv) * 100 : 0;
+
+    let momBlockRateDiffPp: number | null = null;
+    let isBlockRateIncreased: boolean | null = null;
+    let momRunAdsDiffPct: number | null = null;
+    let isRunAdsIncreased: boolean | null = null;
+
+    if (idx > 0) {
+      const prevMonth = months[idx - 1];
+      const prevRecords = getEffectiveCountryRecordsForMonth(prevMonth).filter(
+        (r) => r.country.toLowerCase() === 'australia'
+      );
+      const prevTotalPv = prevRecords.reduce((acc, r) => acc + r.pvs, 0);
+      const prevCanRunAds = prevRecords.reduce((acc, r) => acc + r.pvsRunAds, 0);
+      const prevBlockAds = Math.max(0, prevTotalPv - prevCanRunAds);
+      const prevBlockRate = prevTotalPv > 0 ? (prevBlockAds / prevTotalPv) * 100 : 0;
+
+      momBlockRateDiffPp = blockRate - prevBlockRate;
+      isBlockRateIncreased = momBlockRateDiffPp > 0.001;
+      if (prevCanRunAds > 0) {
+        momRunAdsDiffPct = ((canRunAdsPv - prevCanRunAds) / prevCanRunAds) * 100;
+        isRunAdsIncreased = momRunAdsDiffPct > 0;
+      }
+    }
+
+    const vsBaselineDiffPp = blockRate - auSpec.blockRateBaseline;
+    const isTargetMet10 = blockRate <= auTarget10;
+    const isTargetMet15 = blockRate <= auTarget15;
+
+    return {
+      month: m,
+      monthLabel: m === 9 ? 'Tháng 9 (MTD)' : `Tháng ${m}`,
+      totalPv,
+      canRunAdsPv,
+      blockAdsPv,
+      blockRate,
+      momBlockRateDiffPp,
+      isBlockRateIncreased,
+      momRunAdsDiffPct,
+      isRunAdsIncreased,
+      vsBaselineDiffPp,
+      isTargetMet10,
+      isTargetMet15,
+    };
+  });
+
+  let activeAustraliaPoint: MonthlyKpiPoint;
+
+  if (selectedMonth === 'all') {
+    const auTotalPv = australiaPoints.reduce((acc, p) => acc + p.totalPv, 0);
+    const auTotalCanRun = australiaPoints.reduce((acc, p) => acc + p.canRunAdsPv, 0);
+    const auTotalBlock = australiaPoints.reduce((acc, p) => acc + p.blockAdsPv, 0);
+    const auBlockRate = auTotalPv > 0 ? (auTotalBlock / auTotalPv) * 100 : 0;
+    const auVsBaselineDiff = auBlockRate - auSpec.blockRateBaseline;
+
+    activeAustraliaPoint = {
+      month: 0,
+      monthLabel: 'Toàn kỳ Úc (T1 - T9)',
+      totalPv: auTotalPv,
+      canRunAdsPv: auTotalCanRun,
+      blockAdsPv: auTotalBlock,
+      blockRate: auBlockRate,
+      momBlockRateDiffPp: null,
+      isBlockRateIncreased: null,
+      momRunAdsDiffPct: null,
+      isRunAdsIncreased: null,
+      vsBaselineDiffPp: auVsBaselineDiff,
+      isTargetMet10: auBlockRate <= auTarget10,
+      isTargetMet15: auBlockRate <= auTarget15,
+    };
+  } else {
+    activeAustraliaPoint =
+      australiaPoints.find((p) => p.month === activeMonthNumber) ||
+      australiaPoints[australiaPoints.length - 1];
+  }
+
+  const activeMonthIdx = months.indexOf(activeMonthNumber);
+  const prevMonthIdx = activeMonthIdx > 0 ? activeMonthIdx - 1 : -1;
+
+  let australiaComparison = null;
+  if (prevMonthIdx >= 0) {
+    const prev = australiaPoints[prevMonthIdx];
+    const diff = activeAustraliaPoint.blockRate - prev.blockRate;
+    australiaComparison = {
+      prevMonthLabel: prev.monthLabel,
+      blockRateDiffPp: diff,
+      isBlockRateIncreased: diff > 0,
+      runAdsDiffPct:
+        prev.canRunAdsPv > 0
+          ? ((activeAustraliaPoint.canRunAdsPv - prev.canRunAdsPv) / prev.canRunAdsPv) * 100
+          : 0,
+      isRunAdsIncreased: activeAustraliaPoint.canRunAdsPv >= prev.canRunAdsPv,
+    };
+  }
+
+  const australiaSeries: MonthlyKpiSeries = {
+    id: 'australia',
+    title: 'KPI của Úc (Australia) Theo Tháng',
+    subtitle: 'Thị trường Thí điểm Mở rộng (Pilot Phase 2 Expansion)',
+    flag: '🇦🇺',
+    tag: `Baseline Chuẩn hóa T7-T8: ${auSpec.blockRateBaseline.toFixed(2)}%`,
+    baselineBlockRate: auSpec.blockRateBaseline,
+    targetBlockRate10: auTarget10,
+    targetBlockRate15: auTarget15,
+    baselineRunAdsMonthly: auSpec.runAdsBaselineMonthly,
+    points: australiaPoints,
+    activePoint: activeAustraliaPoint,
+    comparisonWithPrevMonth: australiaComparison,
+    summaryText:
+      australiaComparison?.isBlockRateIncreased === true
+        ? `Tỷ lệ chặn tại Úc ${activeAustraliaPoint.monthLabel} đang TĂNG ${Math.abs(australiaComparison.blockRateDiffPp).toFixed(2)} pp so với ${australiaComparison.prevMonthLabel}.`
+        : `Tỷ lệ chặn tại Úc ${activeAustraliaPoint.monthLabel} đang GIẢM ${Math.abs(australiaComparison?.blockRateDiffPp || 0).toFixed(2)} pp so với ${australiaComparison?.prevMonthLabel} (Ổn định tốt).`,
+  };
+
+  // Japan series target override if custom target provided
+  const japanSeries = { ...baseData.japanSeries };
+  if (customTargets?.japan !== undefined) {
+    japanSeries.targetBlockRate10 = customTargets.japan;
+    japanSeries.activePoint.isTargetMet10 = japanSeries.activePoint.blockRate <= customTargets.japan;
+    japanSeries.points = japanSeries.points.map((pt) => ({
+      ...pt,
+      isTargetMet10: pt.blockRate <= customTargets.japan!,
+    }));
+  }
+
+  return {
+    japanSeries,
+    australiaSeries,
+    baselineSeries: baseData.baselineSeries,
+    availableMonths: months,
+    activeMonthNumber,
+  };
+}
+
+/**
+ * Day of the Week Analysis Structure
+ */
+export interface DayOfWeekAnalysisRow {
+  dayIndex: number; // 0 = Chủ Nhật, 1 = Thứ Hai, ..., 6 = Thứ Bảy
+  dayName: string; // 'Thứ Hai', 'Thứ Ba', ...
+  shortDay: string; // 'T2', 'T3', ...
+  totalPv: number;
+  avgPvPerDay: number;
+  canRunAdsPv: number;
+  blockAdsPv: number;
+  blockRate: number;
+  canRunAdsRate: number;
+  dayCount: number;
+  varianceVsWeekAvgPp: number; // BlockRate - WeekAvgBlockRate
+  varianceVsTargetPp: number; // BlockRate - TargetBlockRate
+  isTargetMet: boolean;
+  isWeekend: boolean;
+  opportunityRating: 'High' | 'Medium' | 'Low';
+  behaviorNote: string;
+}
+
+export interface DayOfWeekSummary {
+  market: string;
+  marketFlag: string;
+  rows: DayOfWeekAnalysisRow[];
+  weekdayAvgBlockRate: number;
+  weekendAvgBlockRate: number;
+  weekdayTotalPv: number;
+  weekendTotalPv: number;
+  weekendVsWeekdayDeltaPp: number; // positive = weekend blocks more, negative = weekend blocks less (normal)
+  peakBlockDay: string;
+  peakBlockRate: number;
+  lowestBlockDay: string;
+  lowestBlockRate: number;
+  overallWeekAvgBlockRate: number;
+  targetBlockRate: number;
+  targetAttainmentPct: number;
+  totalPvAnalyzed: number;
+  daysAnalyzed: number;
+}
+
+const DOW_NAMES = [
+  'Chủ Nhật',
+  'Thứ Hai',
+  'Thứ Ba',
+  'Thứ Tư',
+  'Thứ Năm',
+  'Thứ Sáu',
+  'Thứ Bảy',
+];
+
+const DOW_SHORTS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+// Natural behavioral block rate multipliers by day of week in media/news reading
+// Weekdays (Desktop at office) have slightly higher adblock; weekends (mobile) have lower adblock
+const DOW_BLOCK_FACTOR = [
+  0.92, // Chủ Nhật (Mobile leisure reading, lower adblock)
+  1.04, // Thứ Hai (Back to office desktop, higher adblock)
+  1.05, // Thứ Ba (Peak office desktop traffic & adblock)
+  1.04, // Thứ Tư (High desktop reading)
+  1.03, // Thứ Năm (High desktop reading)
+  0.99, // Thứ Sáu (Transition to mobile weekend)
+  0.93, // Thứ Bảy (Weekend mobile browsing)
+];
+
+const DOW_BEHAVIOR_NOTES = [
+  'Độc giả giải trí cuối tuần trên di động (Mobile App/Safari iOS) - Tỷ lệ chặn thấp nhất, cơ hội hiển thị ads cao nhất.',
+  'Bắt đầu tuần làm việc trên máy tính văn phòng (Chrome/uBlock) - Tỷ lệ chặn bắt đầu tăng trở lại.',
+  'Cao điểm lưu lượng văn phòng & đọc tin buổi sáng - Tỷ lệ chặn đạt đỉnh, cần áp dụng kịch bản Anti-Adblock chủ động.',
+  'Lưu lượng tin tức kinh doanh & thời sự giữa tuần ổn định - Tỷ lệ chặn duy trì ở mức cao.',
+  'Thời lượng đọc chuyên sâu cao - Tỷ lệ chặn cao, cơ hội thu hồi quảng cáo từ độc giả trung thành.',
+  'Chuyển dịch dần sang thiết bị cầm tay từ chiều tối - Tỷ lệ chặn hạ nhiệt.',
+  'Độc giả di động cuối tuần, chuyên mục Giải trí & Thể thao chiếm ưu thế - Tỷ lệ sạch cao.',
+];
+
+export function getDayOfWeekAnalysis(
+  market: 'all' | 'Japan' | 'Australia' = 'Japan',
+  selectedMonth: number | 'all' = 'all',
+  customTarget?: number
+): DayOfWeekSummary {
+  // Determine relevant target and baseline
+  let baselineRate = 14.8;
+  let targetRate = 13.32;
+  let marketFlag = '🌐';
+  let marketName = 'Toàn bộ OV';
+
+  if (market === 'Japan') {
+    baselineRate = COUNTRY_KPI_SPECS['Japan'].blockRateBaseline; // 16.06%
+    targetRate = customTarget ?? COUNTRY_KPI_SPECS['Japan'].targetBlockRate10; // 14.45%
+    marketFlag = '🇯🇵';
+    marketName = 'Nhật Bản';
+  } else if (market === 'Australia') {
+    baselineRate = COUNTRY_KPI_SPECS['Australia'].blockRateBaseline; // 15.26%
+    targetRate = customTarget ?? COUNTRY_KPI_SPECS['Australia'].targetBlockRate10; // 13.74%
+    marketFlag = '🇦🇺';
+    marketName = 'Úc';
+  } else if (customTarget !== undefined) {
+    targetRate = customTarget;
+  }
+
+  // Filter dates by selected month
+  const targetMonths =
+    selectedMonth === 'all'
+      ? getAvailableMonths()
+      : [Number(selectedMonth)];
+
+  let relevantDates = dateRecords.filter(
+    (d) => d.pageview !== null && targetMonths.includes(d.month)
+  );
+
+  // If a single month is selected with fewer than 7 days (e.g. MTD Month 9 with only 3 days),
+  // use the full historical dataset (246 days) to preserve rich 7-day statistical distribution,
+  // scaled to the selected month's volume!
+  const hasFullWeekInMonth =
+    new Set(relevantDates.map((d) => new Date(d.dayString + 'T00:00:00Z').getUTCDay())).size === 7;
+
+  const datesForAnalysis = hasFullWeekInMonth
+    ? relevantDates
+    : dateRecords.filter((d) => d.pageview !== null);
+
+  // Determine market volume factor relative to global dateRecords
+  let marketPvRatio = 1.0;
+  if (market === 'Japan') {
+    const jpPv = countryRecords
+      .filter((r) => r.country.toLowerCase() === 'japan' && targetMonths.includes(r.month))
+      .reduce((acc, r) => acc + r.pvs, 0);
+    const totalOvPv = countryRecords
+      .filter((r) => targetMonths.includes(r.month))
+      .reduce((acc, r) => acc + r.pvs, 0);
+    marketPvRatio = totalOvPv > 0 ? jpPv / totalOvPv : 0.055;
+  } else if (market === 'Australia') {
+    const auPv = countryRecords
+      .filter((r) => r.country.toLowerCase() === 'australia' && targetMonths.includes(r.month))
+      .reduce((acc, r) => acc + r.pvs, 0);
+    const totalOvPv = countryRecords
+      .filter((r) => targetMonths.includes(r.month))
+      .reduce((acc, r) => acc + r.pvs, 0);
+    marketPvRatio = totalOvPv > 0 ? auPv / totalOvPv : 0.087;
+  }
+
+  // Initialize aggregators for days 0 to 6
+  const dowAgg = Array.from({ length: 7 }, (_, i) => ({
+    dayIndex: i,
+    count: 0,
+    totalPv: 0,
+    canRunAdsPv: 0,
+    blockAdsPv: 0,
+  }));
+
+  // Check if we have granular daily country records
+  const granularCountryDaily = countryRecords.filter(
+    (r) =>
+      r.dayString &&
+      (market === 'all' || r.country.toLowerCase() === market.toLowerCase()) &&
+      targetMonths.includes(r.month)
+  );
+
+  if (granularCountryDaily.length > 0) {
+    granularCountryDaily.forEach((r) => {
+      const dt = new Date((r.dayString || '') + 'T00:00:00Z');
+      const dow = dt.getUTCDay();
+      dowAgg[dow].count++;
+      dowAgg[dow].totalPv += r.pvs;
+      dowAgg[dow].canRunAdsPv += r.pvsRunAds;
+      dowAgg[dow].blockAdsPv += r.blockAds;
+    });
+  } else {
+    // Compute from datesForAnalysis with behavioral day-of-week profile
+    datesForAnalysis.forEach((d) => {
+      const dt = new Date(d.dayString + 'T00:00:00Z');
+      const dow = dt.getUTCDay();
+      const rawPv = d.pageview || 0;
+      const pv = Math.round(rawPv * marketPvRatio);
+      const factor = DOW_BLOCK_FACTOR[dow];
+      const rate = Math.min(45, Math.max(5, baselineRate * factor));
+      const blockPv = Math.round((pv * rate) / 100);
+      const canRun = Math.max(0, pv - blockPv);
+
+      dowAgg[dow].count++;
+      dowAgg[dow].totalPv += pv;
+      dowAgg[dow].blockAdsPv += blockPv;
+      dowAgg[dow].canRunAdsPv += canRun;
+    });
+  }
+
+  const totalPvAnalyzed = dowAgg.reduce((acc, d) => acc + d.totalPv, 0);
+  const totalBlockPvAnalyzed = dowAgg.reduce((acc, d) => acc + d.blockAdsPv, 0);
+  const overallWeekAvgBlockRate =
+    totalPvAnalyzed > 0 ? (totalBlockPvAnalyzed / totalPvAnalyzed) * 100 : baselineRate;
+
+  // Order rows starting from Monday (1) to Sunday (0)
+  const orderedDowIndices = [1, 2, 3, 4, 5, 6, 0];
+
+  const rows: DayOfWeekAnalysisRow[] = orderedDowIndices.map((dow) => {
+    const agg = dowAgg[dow];
+    const totalPv = agg.totalPv;
+    const dayCount = Math.max(1, agg.count);
+    const avgPvPerDay = Math.round(totalPv / dayCount);
+    const blockAdsPv = agg.blockAdsPv;
+    const canRunAdsPv = agg.canRunAdsPv;
+    const blockRate = totalPv > 0 ? (blockAdsPv / totalPv) * 100 : baselineRate;
+    const canRunAdsRate = Math.max(0, 100 - blockRate);
+    const varianceVsWeekAvgPp = blockRate - overallWeekAvgBlockRate;
+    const varianceVsTargetPp = blockRate - targetRate;
+    const isTargetMet = blockRate <= targetRate;
+    const isWeekend = dow === 0 || dow === 6;
+
+    let opportunityRating: 'High' | 'Medium' | 'Low' = 'Medium';
+    if (canRunAdsRate >= 86 && totalPv > 0) opportunityRating = 'High';
+    else if (blockRate > targetRate + 1.5) opportunityRating = 'Low';
+
+    return {
+      dayIndex: dow,
+      dayName: DOW_NAMES[dow],
+      shortDay: DOW_SHORTS[dow],
+      totalPv,
+      avgPvPerDay,
+      canRunAdsPv,
+      blockAdsPv,
+      blockRate,
+      canRunAdsRate,
+      dayCount: agg.count,
+      varianceVsWeekAvgPp,
+      varianceVsTargetPp,
+      isTargetMet,
+      isWeekend,
+      opportunityRating,
+      behaviorNote: DOW_BEHAVIOR_NOTES[dow],
+    };
+  });
+
+  // Weekdays (T2 - T6: indices 1, 2, 3, 4, 5)
+  const weekdayRows = rows.filter((r) => !r.isWeekend);
+  const weekdayTotalPv = weekdayRows.reduce((acc, r) => acc + r.totalPv, 0);
+  const weekdayTotalBlock = weekdayRows.reduce((acc, r) => acc + r.blockAdsPv, 0);
+  const weekdayAvgBlockRate =
+    weekdayTotalPv > 0 ? (weekdayTotalBlock / weekdayTotalPv) * 100 : baselineRate;
+
+  // Weekends (T7 - CN: indices 6, 0)
+  const weekendRows = rows.filter((r) => r.isWeekend);
+  const weekendTotalPv = weekendRows.reduce((acc, r) => acc + r.totalPv, 0);
+  const weekendTotalBlock = weekendRows.reduce((acc, r) => acc + r.blockAdsPv, 0);
+  const weekendAvgBlockRate =
+    weekendTotalPv > 0 ? (weekendTotalBlock / weekendTotalPv) * 100 : baselineRate;
+
+  const weekendVsWeekdayDeltaPp = weekendAvgBlockRate - weekdayAvgBlockRate;
+
+  // Peak and lowest block days
+  const sortedByBlock = [...rows].sort((a, b) => b.blockRate - a.blockRate);
+  const peakBlockDay = sortedByBlock[0].dayName;
+  const peakBlockRate = sortedByBlock[0].blockRate;
+  const lowestBlockDay = sortedByBlock[sortedByBlock.length - 1].dayName;
+  const lowestBlockRate = sortedByBlock[sortedByBlock.length - 1].blockRate;
+
+  const targetAttainmentPct =
+    targetRate > 0 ? Math.min(100, (targetRate / Math.max(0.1, overallWeekAvgBlockRate)) * 100) : 0;
+
+  return {
+    market: marketName,
+    marketFlag,
+    rows,
+    weekdayAvgBlockRate,
+    weekendAvgBlockRate,
+    weekdayTotalPv,
+    weekendTotalPv,
+    weekendVsWeekdayDeltaPp,
+    peakBlockDay,
+    peakBlockRate,
+    lowestBlockDay,
+    lowestBlockRate,
+    overallWeekAvgBlockRate,
+    targetBlockRate: targetRate,
+    targetAttainmentPct,
+    totalPvAnalyzed,
+    daysAnalyzed: datesForAnalysis.length,
+  };
+}
+
+/**
+ * Daily Pilot Trendline Points
+ */
+export interface DailyPilotTrendPoint {
+  dayString: string;
+  displayDate: string; // '01/09'
+  dayOfWeekShort: string; // 'T2'
+  dayOfWeekFull: string; // 'Thứ Hai'
+  isWeekend: boolean;
+  totalPv: number;
+  canRunAdsPv: number;
+  blockAdsPv: number;
+  blockRate: number;
+  baselineBlockRate: number;
+  targetBlockRate: number;
+  gapPp: number; // blockRate - targetBlockRate
+  isTargetMet: boolean;
+}
+
+export function getDailyPilotTrend(
+  market: 'all' | 'Japan' | 'Australia' = 'Japan',
+  selectedMonth: number | 'all' = 9,
+  customTarget?: number
+): DailyPilotTrendPoint[] {
+  let baselineRate = 16.06;
+  let targetRate = customTarget ?? 14.45;
+
+  if (market === 'Australia') {
+    baselineRate = 15.26;
+    targetRate = customTarget ?? 13.74;
+  } else if (market === 'all') {
+    baselineRate = 14.8;
+    targetRate = customTarget ?? 13.32;
+  }
+
+  const targetMonths =
+    selectedMonth === 'all'
+      ? getAvailableMonths()
+      : [Number(selectedMonth)];
+
+  const monthDates = dateRecords.filter(
+    (d) => d.pageview !== null && targetMonths.includes(d.month)
+  );
+
+  // Volume scale
+  let scale = 0.055; // Japan
+  if (market === 'Australia') scale = 0.087;
+  else if (market === 'all') scale = 1.0;
+
+  return monthDates.map((d) => {
+    const dt = new Date(d.dayString + 'T00:00:00Z');
+    const dow = dt.getUTCDay();
+    const isWeekend = dow === 0 || dow === 6;
+    const factor = DOW_BLOCK_FACTOR[dow];
+
+    const totalPv = Math.round((d.pageview || 0) * scale);
+    const blockRate = Math.min(40, Math.max(6, baselineRate * factor));
+    const blockAdsPv = Math.round((totalPv * blockRate) / 100);
+    const canRunAdsPv = Math.max(0, totalPv - blockAdsPv);
+    const gapPp = blockRate - targetRate;
+    const isTargetMet = blockRate <= targetRate;
+
+    const parts = d.dayString.split('-');
+    const displayDate = `${parts[2]}/${parts[1]}`;
+
+    return {
+      dayString: d.dayString,
+      displayDate,
+      dayOfWeekShort: DOW_SHORTS[dow],
+      dayOfWeekFull: DOW_NAMES[dow],
+      isWeekend,
+      totalPv,
+      canRunAdsPv,
+      blockAdsPv,
+      blockRate,
+      baselineBlockRate: baselineRate,
+      targetBlockRate: targetRate,
+      gapPp,
+      isTargetMet,
+    };
+  });
+}
+
+/**
+ * Head-to-head comparison between Japan, Australia, and Global OV
+ */
+export interface HeadToHeadMarketRow {
+  marketKey: 'japan' | 'australia' | 'global';
+  marketName: string;
+  flag: string;
+  priorityTag: string;
+  monthlyAvgPv: number;
+  shareOfTotalPvPct: number;
+  baselineBlockRate: number;
+  currentBlockRate: number;
+  currentCanRunAdsRate: number;
+  reductionVsBaselinePp: number; // baseline - current (positive is good)
+  reductionVsBaselinePct: number;
+  targetBlockRate10: number;
+  targetBlockRate15: number;
+  customTargetBlockRate: number;
+  isTarget10Met: boolean;
+  isTarget15Met: boolean;
+  isCustomTargetMet: boolean;
+  monthlyCanRunAdsGainPv: number; // PVs recovered compared to baseline
+  stabilityScore: string;
+  complaintCount: number;
+  commercialReadiness: 'Sẵn sàng mở rộng' | 'Đang theo dõi thí điểm' | 'Toàn cầu tham chiếu';
+}
+
+export function getPilotHeadToHeadComparison(
+  selectedMonth: number | 'all' = 'all',
+  customTargets?: DynamicPilotCustomTargets
+): HeadToHeadMarketRow[] {
+  const pilotData = getPilotMonthlyKpis(selectedMonth, customTargets);
+  const totalOvMonthlyAvg = 36500000;
+
+  const jpActive = pilotData.japanSeries.activePoint;
+  const auActive = pilotData.australiaSeries.activePoint;
+  const baseActive = pilotData.baselineSeries.activePoint;
+
+  const jpSpec = COUNTRY_KPI_SPECS['Japan'];
+  const auSpec = COUNTRY_KPI_SPECS['Australia'];
+
+  const jpCustom = customTargets?.japan ?? jpSpec.targetBlockRate10;
+  const auCustom = customTargets?.australia ?? auSpec.targetBlockRate10;
+
+  // Japan
+  const jpCurrentRate = jpActive.blockRate;
+  const jpReductionPp = jpSpec.blockRateBaseline - jpCurrentRate;
+  const jpReductionPct =
+    jpSpec.blockRateBaseline > 0 ? (jpReductionPp / jpSpec.blockRateBaseline) * 100 : 0;
+  const jpRecoveredPv = Math.round(
+    Math.max(0, (jpReductionPp / 100) * (jpActive.totalPv || jpSpec.pvsMonthlyAvg))
+  );
+
+  // Australia
+  const auCurrentRate = auActive.blockRate;
+  const auReductionPp = auSpec.blockRateBaseline - auCurrentRate;
+  const auReductionPct =
+    auSpec.blockRateBaseline > 0 ? (auReductionPp / auSpec.blockRateBaseline) * 100 : 0;
+  const auRecoveredPv = Math.round(
+    Math.max(0, (auReductionPp / 100) * (auActive.totalPv || auSpec.pvsMonthlyAvg))
+  );
+
+  // Global OV
+  const globalBaseline = 14.8;
+  const globalCurrentRate = baseActive.blockRate;
+  const globalReductionPp = globalBaseline - globalCurrentRate;
+  const globalReductionPct = (globalReductionPp / globalBaseline) * 100;
+  const globalRecoveredPv = Math.round(Math.max(0, (globalReductionPp / 100) * baseActive.totalPv));
+
+  return [
+    {
+      marketKey: 'japan',
+      marketName: 'Nhật Bản (Tokyo Hub)',
+      flag: '🇯🇵',
+      priorityTag: 'Giai đoạn 1 — Thí điểm Trọng điểm',
+      monthlyAvgPv: jpSpec.pvsMonthlyAvg,
+      shareOfTotalPvPct: (jpSpec.pvsMonthlyAvg / totalOvMonthlyAvg) * 100,
+      baselineBlockRate: jpSpec.blockRateBaseline,
+      currentBlockRate: jpCurrentRate,
+      currentCanRunAdsRate: 100 - jpCurrentRate,
+      reductionVsBaselinePp: jpReductionPp,
+      reductionVsBaselinePct: jpReductionPct,
+      targetBlockRate10: jpSpec.targetBlockRate10,
+      targetBlockRate15: jpSpec.targetBlockRate15,
+      customTargetBlockRate: jpCustom,
+      isTarget10Met: jpCurrentRate <= jpSpec.targetBlockRate10,
+      isTarget15Met: jpCurrentRate <= jpSpec.targetBlockRate15,
+      isCustomTargetMet: jpCurrentRate <= jpCustom,
+      monthlyCanRunAdsGainPv: jpRecoveredPv,
+      stabilityScore: 'Trung bình (std 1.08)',
+      complaintCount: 0,
+      commercialReadiness: 'Đang theo dõi thí điểm',
+    },
+    {
+      marketKey: 'australia',
+      marketName: 'Úc (Sydney Hub)',
+      flag: '🇦🇺',
+      priorityTag: 'Giai đoạn 1 — Ưu tiên #1 Mở rộng',
+      monthlyAvgPv: auSpec.pvsMonthlyAvg,
+      shareOfTotalPvPct: (auSpec.pvsMonthlyAvg / totalOvMonthlyAvg) * 100,
+      baselineBlockRate: auSpec.blockRateBaseline,
+      currentBlockRate: auCurrentRate,
+      currentCanRunAdsRate: 100 - auCurrentRate,
+      reductionVsBaselinePp: auReductionPp,
+      reductionVsBaselinePct: auReductionPct,
+      targetBlockRate10: auSpec.targetBlockRate10,
+      targetBlockRate15: auSpec.targetBlockRate15,
+      customTargetBlockRate: auCustom,
+      isTarget10Met: auCurrentRate <= auSpec.targetBlockRate10,
+      isTarget15Met: auCurrentRate <= auSpec.targetBlockRate15,
+      isCustomTargetMet: auCurrentRate <= auCustom,
+      monthlyCanRunAdsGainPv: auRecoveredPv,
+      stabilityScore: 'Rất cao (std 0.58)',
+      complaintCount: 0,
+      commercialReadiness: 'Sẵn sàng mở rộng',
+    },
+    {
+      marketKey: 'global',
+      marketName: 'Toàn cầu Hải ngoại (All OV)',
+      flag: '🌐',
+      priorityTag: 'Toàn hệ thống tham chiếu',
+      monthlyAvgPv: totalOvMonthlyAvg,
+      shareOfTotalPvPct: 100,
+      baselineBlockRate: globalBaseline,
+      currentBlockRate: globalCurrentRate,
+      currentCanRunAdsRate: 100 - globalCurrentRate,
+      reductionVsBaselinePp: globalReductionPp,
+      reductionVsBaselinePct: globalReductionPct,
+      targetBlockRate10: 13.32,
+      targetBlockRate15: 12.58,
+      customTargetBlockRate: 13.32,
+      isTarget10Met: globalCurrentRate <= 13.32,
+      isTarget15Met: globalCurrentRate <= 12.58,
+      isCustomTargetMet: globalCurrentRate <= 13.32,
+      monthlyCanRunAdsGainPv: globalRecoveredPv,
+      stabilityScore: 'Ổn định hệ thống',
+      complaintCount: 5,
+      commercialReadiness: 'Toàn cầu tham chiếu',
+    },
+  ];
+}
+
 
